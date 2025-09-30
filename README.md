@@ -21,7 +21,7 @@
 
 ## 🙌 How to Contribute
 
-We welcome contributions of all kinds! Please read our [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct, and the process for submitting pull requests to us.
+We welcome contributions of all kinds! Please read our [CONTRIBUTING.md](contributing.md) for details on our code of conduct, and the process for submitting pull requests to us.
 
 ## 📜 License
 
