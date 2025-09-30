@@ -3,7 +3,6 @@
 [![GitHub forks](https://img.shields.io/github/forks/piyushsachdeva/canner?style=social)](https://github.com/piyushsachdeva/canner/fork)
 [![GitHub stars](https://img.shields.io/github/stars/piyushsachdeva/canner?style=social)](https://github.com/piyushsachdeva/canner/stargazers)
 [![GitHub contributors](https://img.shields.io/github/contributors/piyushsachdeva/canner)](https://github.com/piyushsachdeva/canner/graphs/contributors)
-![Visits](https://badges.pufler.dev/visits/piyushsachdeva/canner)
 
 ✍️ Canner is a powerful tool designed to streamline your social media management, with a special focus on LinkedIn. It empowers you to engage with your audience more effectively by using pre-defined "canned" responses for frequently asked questions. This not only saves you time but also helps in maintaining a consistent and professional voice across your social media interactions. Additionally, Canner provides a rich text editor to create visually appealing posts with various formatting options.
 
