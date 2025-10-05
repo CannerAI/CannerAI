@@ -1,0 +1,284 @@
+/* Canner Popup Styles */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto",
+    sans-serif;
+  background: #f5f7fa;
+}
+
+.popup-container {
+  width: 400px;
+  min-height: 500px;
+  max-height: 600px;
+  display: flex;
+  flex-direction: column;
+  background: white;
+}
+
+.popup-header {
+  background: linear-gradient(135deg, #0a66c2 0%, #004182 100%);
+  color: white;
+  padding: 20px;
+  text-align: center;
+}
+
+.popup-header h1 {
+  font-size: 20px;
+  margin-bottom: 5px;
+}
+
+.popup-header p {
+  font-size: 13px;
+  opacity: 0.9;
+}
+
+.popup-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+}
+
+.search-section {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.search-input {
+  flex: 1;
+  padding: 10px 12px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 14px;
+  transition: border-color 0.2s;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #0a66c2;
+}
+
+.btn-new {
+  padding: 10px 16px;
+  background: linear-gradient(135deg, #0a66c2 0%, #004182 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: transform 0.2s;
+}
+
+.btn-new:hover {
+  transform: translateY(-1px);
+}
+
+.btn-new:active {
+  transform: translateY(0);
+}
+
+.new-form {
+  background: #f8f9fa;
+  padding: 16px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.form-input,
+.form-textarea {
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 10px;
+  border: 2px solid #e0e0e0;
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+  transition: border-color 0.2s;
+}
+
+.form-input:focus,
+.form-textarea:focus {
+  outline: none;
+  border-color: #0a66c2;
+}
+
+.form-textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.btn-save {
+  width: 100%;
+  padding: 10px;
+  background: linear-gradient(135deg, #0a66c2 0%, #004182 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.btn-save:hover {
+  transform: translateY(-1px);
+}
+
+.responses-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.response-card {
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 12px;
+  transition: all 0.2s;
+}
+
+.response-card:hover {
+  border-color: #0a66c2;
+  box-shadow: 0 2px 8px rgba(10, 102, 194, 0.1);
+}
+
+.response-title {
+  font-weight: 600;
+  color: #0a66c2;
+  margin-bottom: 6px;
+  font-size: 14px;
+}
+
+.response-content {
+  font-size: 13px;
+  color: #666;
+  margin-bottom: 8px;
+  line-height: 1.4;
+  max-height: 60px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.response-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.tag {
+  display: inline-block;
+  padding: 3px 8px;
+  background: #e8f4ff;
+  color: #0a66c2;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.response-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.btn-action {
+  flex: 1;
+  padding: 6px 10px;
+  border: none;
+  border-radius: 5px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-weight: 500;
+}
+
+.btn-insert {
+  background: #0a66c2;
+  color: white;
+}
+
+.btn-insert:hover {
+  background: #004182;
+  transform: translateY(-1px);
+}
+
+.btn-copy {
+  background: #f0f0f0;
+  color: #666;
+}
+
+.btn-copy:hover {
+  background: #e0e0e0;
+  transform: translateY(-1px);
+}
+
+.btn-delete {
+  background: #fff0f0;
+  color: #c41e3a;
+}
+
+.btn-delete:hover {
+  background: #c41e3a;
+  color: white;
+  transform: translateY(-1px);
+}
+
+.loading {
+  text-align: center;
+  padding: 40px 20px;
+  color: #666;
+}
+
+.empty {
+  text-align: center;
+  padding: 40px 20px;
+  color: #999;
+}
+
+.empty p {
+  font-size: 16px;
+  margin-bottom: 8px;
+}
+
+.empty-sub {
+  font-size: 13px;
+}
+
+.popup-footer {
+  border-top: 1px solid #e0e0e0;
+  padding: 12px 20px;
+  text-align: center;
+  background: #f8f9fa;
+}
+
+.popup-footer small {
+  color: #666;
+  font-size: 12px;
+}
+
+/* Scrollbar */
+.popup-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.popup-content::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+.popup-content::-webkit-scrollbar-thumb {
+  background: #0a66c2;
+  border-radius: 4px;
+}
+
+.popup-content::-webkit-scrollbar-thumb:hover {
+  background: #004182;
+}
