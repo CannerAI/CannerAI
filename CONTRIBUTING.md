@@ -160,35 +160,6 @@ dist/
 4. **Environment details** (OS, browser, version)
 5. **Screenshots or videos** if applicable
 
-### Bug Report Template
-
-```markdown
-**Bug Description**
-A clear description of what the bug is.
-
-**To Reproduce**
-Steps to reproduce the behavior:
-
-1. Go to '...'
-2. Click on '....'
-3. Scroll down to '....'
-4. See error
-
-**Expected Behavior**
-What you expected to happen.
-
-**Screenshots**
-If applicable, add screenshots.
-
-**Environment:**
-
-- OS: [e.g. Windows 10, macOS 12]
-- Browser: [e.g. Chrome 119, Firefox 120]
-- Extension Version: [e.g. 1.0.0]
-
-**Additional Context**
-Any other context about the problem.
-```
 
 ## 💡 Feature Requests
 

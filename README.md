@@ -8,36 +8,10 @@
 [![Python](https://img.shields.io/badge/Python-3.12-3776AB.svg)](https://python.org)
 
 ## ✨ Features
+- Select from a variety of pre-defined response templates
+- Format linked post with Ease
 
-### 🎯 **Smart Button Integration**
-
-- **Grammarly-style pen button** that appears elegantly on LinkedIn and Twitter/X
-- **Intelligent positioning** with smooth animations and hover effects
-- **Platform-aware design** with adaptive colors and responsive behavior
-- **Non-intrusive interface** that seamlessly integrates with existing UI
-
-### 🤖 **AI-Powered Responses**
-
-- **Context-aware suggestions** based on conversation content
-- **Customizable response templates** for different scenarios
-- **Tag-based organization** for easy content management
-- **Real-time search and filtering** across your response library
-
-### 🔧 **Developer-Friendly Architecture**
-
-- **Self-retryable database connections** with exponential backoff
-- **Dual database support** (PostgreSQL for production, SQLite for development)
-- **Hot reload development** with zero-config setup
-- **Comprehensive health monitoring** and logging
-
-### 🐳 **Production-Ready Deployment**
-
-- **Docker containerization** with optimized builds
-- **Database migrations** and seeding scripts
-- **Health checks** and graceful error handling
-- **Environment-based configuration**
-
-## � Quick Start
+## 🚀 Quick Start
 
 ### Prerequisites
 
@@ -49,7 +23,7 @@
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/canner.git
+git clone https://github.com/piyushsachdeva/canner.git
 cd canner
 
 # Start all services
