@@ -208,6 +208,35 @@ Any other context about the problem.
 - **Help others** learn and contribute
 - **Stay on topic** in discussions
 
+## ✅ Do's and ❌ Don'ts
+
+### ✅ Do's
+
+- **Do** search existing issues before creating a new one
+- **Do** provide detailed information in bug reports and feature requests
+- **Do** test your changes thoroughly before submitting a PR
+- **Do** follow the code style and conventions used in the project
+- **Do** write clear commit messages that explain what and why
+- **Do** update documentation when you change functionality
+- **Do** be patient and respectful when waiting for reviews
+- **Do** ask questions if you're unsure about something
+- **Do** link related issues in your PRs
+- **Do** keep PRs focused on a single feature or fix
+
+### ❌ Don'ts
+
+- **Don't** create duplicate issues without checking existing ones first
+- **Don't** submit spam, low-effort, or placeholder issues/PRs
+- **Don't** create issues like "Please assign me" or "+1" comments
+- **Don't** make PRs with only whitespace or formatting changes without prior discussion
+- **Don't** submit incomplete or untested code
+- **Don't** create multiple issues for the same problem
+- **Don't** hijack existing issues with unrelated topics
+- **Don't** demand immediate responses or reviews
+- **Don't** use offensive or inappropriate language
+- **Don't** copy code without proper attribution
+- **Don't** submit AI-generated PRs without understanding and testing the code
+
 ### Getting Help
 
 - **Join Our Community**: [Discord](https://discord.com/invite/the-cloudops-community-1030513521122885642)
