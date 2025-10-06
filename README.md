@@ -11,6 +11,12 @@
 - Select from a variety of pre-defined response templates
 - Format linked post with Ease
 
+## 📄 **Contributing**
+
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+- Join our Discord community for discussions and support. [Join Discord](https://discord.com/invite/the-cloudops-community-1030513521122885642)
+
+
 ## 🚀 Quick Start
 
 ### Prerequisites
@@ -91,86 +97,7 @@ python app.py
    npm run test:firefox
    ```
 
-### Backend API Setup
 
-The backend provides a RESTful API for managing response templates:
-
-```bash
-# Health check
-curl http://localhost:5000/api/health
-
-# Get all responses
-curl http://localhost:5000/api/responses
-
-# Create a new response
-curl -X POST http://localhost:5000/api/responses \
-  -H "Content-Type: application/json" \
-  -d '{"title": "Professional Thanks", "content": "Thank you for your message!", "tags": ["professional", "gratitude"]}'
-```
-
-## 🏗️ **Architecture**
-
-```text
-┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│  Browser        │    │  Backend API     │    │  Database       │
-│  Extension      │◄──►│  (Flask)         │◄──►│  (PostgreSQL/   │
-│  (TypeScript)   │    │                  │    │   SQLite)       │
-└─────────────────┘    └──────────────────┘    └─────────────────┘
-```
-
-### **Components Overview:**
-
-- **🌐 Browser Extension**: TypeScript-based Chrome/Firefox extension with content scripts
-- **⚙️ Backend API**: Python Flask application with auto-retry database connections
-- **🗄️ Database**: PostgreSQL (production) or SQLite (development) with automatic migrations
-- **🐳 Docker**: Containerized services with health checks and volume persistence
-
-## 🛠️ **Development**
-
-### Hot Reload Development
-
-The project supports hot reload for both frontend and backend:
-
-```bash
-# Backend hot reload
-cd backend
-export FLASK_ENV=development
-python app.py
-
-# Extension hot reload
-cd browser-extension
-npm run dev
-```
-
-### Database Management
-
-```bash
-# Reset database
-docker-compose down --volumes
-docker-compose up --build
-
-# View logs
-docker-compose logs backend
-docker-compose logs postgres
-
-# Database shell
-docker-compose exec postgres psql -U developer -d canner_dev
-```
-
-### Testing
-
-```bash
-# Backend API tests
-cd backend
-python -m pytest tests/
-
-# Extension testing
-cd browser-extension
-npm test
-
-# Integration testing
-npm run test:extension
-```
 
 ## � **API Documentation**
 
@@ -208,17 +135,7 @@ npm run test:extension
 | `FLASK_ENV` | Flask environment | `production` |
 | `FLASK_DEBUG` | Enable debug mode | `false` |
 
-### Browser Extension Settings
 
-The extension automatically detects platform contexts and adapts its behavior:
-
-- **LinkedIn**: Blue theme, professional positioning
-- **Twitter/X**: White theme, compact design
-- **Universal**: Adaptive design for other sites
-
-## 📄 **Contributing**
-
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
 
 ## 🔐 **Security**
 
@@ -236,7 +153,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 📞 **Support**
 
 - 📧 **Email**: [baivab@techtutorialswithpiyush.com](mailto:baivab@techtutorialswithpiyush.com)
-- 🐛 **Issues**: [GitHub Issues](https://github.com/yourusername/canner/issues)
-- 💬 **Discussions**: [GitHub Discussions](https://github.com/yourusername/canner/discussions)
+- 🐛 **Issues**: [GitHub Issues](https://github.com/piyushsachdeva/canner/issues)
+- 💬 **Discord**: [Join our Discord](https://discord.com/invite/the-cloudops-community-1030513521122885642)
 
 Made with ❤️ for developers who type the same things repeatedly
