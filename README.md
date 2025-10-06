@@ -39,66 +39,6 @@ docker-compose up --build
 # Load the browser extension from: ./browser-extension/dist
 ```
 
-## 📦 **Installation Guide**
-
-### 🚀 **Option 1: Dev Container (Recommended for Development)**
-
-The fastest way to start developing! No need to install PostgreSQL or Python locally.
-
-**Prerequisites:**
-
-- Docker Desktop
-- VS Code with Dev Containers extension
-
-**Steps:**
-
-```bash
-# Clone and open
-git clone https://github.com/yourusername/canner.git
-cd canner
-code .
-
-# Reopen in container (F1 → "Dev Containers: Reopen in Container")
-# Wait for setup, then:
-cd backend
-python app.py
-```
-
-✅ **Benefits:**
-
-- ✨ Zero configuration - everything works out of the box
-- 🗄️ PostgreSQL included - no local installation needed
-- 🐍 Python environment pre-configured
-- 🔧 All dev tools ready (black, pylint, pytest, ipython)
-- 🔄 Instant onboarding for new developers
-
-📖 **Full guide:** [.devcontainer/README.md](.devcontainer/README.md)
-
----
-
-### Browser Extension Installation
-
-1. **Build the extension:**
-
-   ```bash
-   cd browser-extension
-   npm run build
-   ```
-
-2. **Load in Chrome:**
-   - Open `chrome://extensions/`
-   - Enable "Developer mode"
-   - Click "Load unpacked"
-   - Select the `browser-extension/dist` folder
-
-3. **Load in Firefox:**
-
-   ```bash
-   npm run test:firefox
-   ```
-
-
-
 ## � **API Documentation**
 
 ### Endpoints
