@@ -20,10 +20,52 @@ services:
       postgres:
         condition: service_healthy
   
-  # Ensure PostgreSQL runs
+  # PostgreSQL Database
   postgres:
-    profiles: []
-  
-  # Ensure pgAdmin runs  
+    image: postgres:15-alpine
+    container_name: canner_postgres
+    environment:
+      POSTGRES_DB: canner_dev
+      POSTGRES_USER: developer
+      POSTGRES_PASSWORD: devpassword
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --lc-collate=C --lc-ctype=C"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/01-init.sql
+      - ./database/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql
+    networks:
+      - canner_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U developer -d canner_dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
   pgadmin:
-    profiles: []
+    image: dpage/pgadmin4:latest
+    container_name: canner_pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@canner.dev
+      PGADMIN_DEFAULT_PASSWORD: admin123
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+    ports:
+      - "8080:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      - postgres
+    networks:
+      - canner_network
+
+volumes:
+  postgres_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+
+networks:
+  canner_network:
+    driver: bridge

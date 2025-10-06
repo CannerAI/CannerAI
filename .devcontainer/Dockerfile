@@ -53,8 +53,12 @@ WORKDIR /workspace
 # Upgrade pip
 RUN pip install --upgrade pip
 
+RUN chmod +x /usr/local/bin/pip* || true
+
 # Switch to non-root user
 USER vscode
+
+ENV PATH="/usr/local/bin:/usr/bin:/bin:$PATH"
 
 # Keep container running
 CMD ["sleep", "infinity"]

@@ -122,7 +122,9 @@ def init_db(max_retries: int = 10):
                         content TEXT NOT NULL,
                         tags JSONB DEFAULT '[]'::jsonb,
                         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-                        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                        usage_count INTEGER DEFAULT 0,
+                        custom_order INTEGER DEFAULT 0
                     );
                 '''
             else:
@@ -134,7 +136,9 @@ def init_db(max_retries: int = 10):
                         content TEXT NOT NULL,
                         tags TEXT,
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        usage_count INTEGER DEFAULT 0,
+                        custom_order INTEGER DEFAULT 0
                     )
                 '''
             
@@ -175,7 +179,9 @@ def dict_from_row(row) -> Dict[str, Any]:
         'content': row['content'],
         'tags': tags,
         'created_at': str(row['created_at']) if row['created_at'] else None,
-        'updated_at': str(row['updated_at']) if row['updated_at'] else None
+        'updated_at': str(row['updated_at']) if row['updated_at'] else None,
+        'usage_count': row['usage_count'] or 0,
+        'custom_order': row['custom_order'] or 0
     }
 
 
@@ -247,23 +253,25 @@ def create_response():
     title = data['title']
     content = data['content']
     tags = data.get('tags', [])
+    usage_count = data.get('usage_count', 0)
+    custom_order = data.get('custom_order', 0)
     
     conn = get_db_connection()
     
     if is_postgres():
         # PostgreSQL with JSONB and auto-generated UUID
         query = '''
-            INSERT INTO responses (title, content, tags) 
-            VALUES (%s, %s, %s) 
+            INSERT INTO responses (title, content, tags, usage_count, custom_order) 
+            VALUES (%s, %s, %s, %s, %s) 
             RETURNING *
         '''
-        rows = execute_query(conn, query, (title, content, json.dumps(tags)))
+        rows = execute_query(conn, query, (title, content, json.dumps(tags), usage_count, custom_order))
         response_data = dict_from_row(rows[0]) if rows else None
     else:
         # SQLite with manual UUID
         response_id = str(uuid.uuid4())
-        query = 'INSERT INTO responses (id, title, content, tags) VALUES (?, ?, ?, ?)'
-        execute_query(conn, query, (response_id, title, content, json.dumps(tags)))
+        query = 'INSERT INTO responses (id, title, content, tags, usage_count, custom_order) VALUES (?, ?, ?, ?, ?, ?)'
+        execute_query(conn, query, (response_id, title, content, json.dumps(tags), usage_count, custom_order))
         
         # Fetch the created record
         rows = execute_query(conn, 'SELECT * FROM responses WHERE id = ?', (response_id,))
@@ -319,6 +327,14 @@ def update_response(response_id: str):
         else:
             updates.append('tags = ?')
             params.append(json.dumps(data['tags']))
+    
+    if 'usage_count' in data:
+        updates.append('usage_count = %s' if is_postgres() else 'usage_count = ?')
+        params.append(data['usage_count'])
+    
+    if 'custom_order' in data:
+        updates.append('custom_order = %s' if is_postgres() else 'custom_order = ?')
+        params.append(data['custom_order'])
     
     if updates:
         if is_postgres():
