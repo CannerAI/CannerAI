@@ -1,0 +1,65 @@
+{
+  "name": "Canner Development",
+
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": "."
+  },
+
+  "runArgs": ["--network=canner_canner_network"],
+
+  "workspaceFolder": "/workspace",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=cached",
+
+  "initializeCommand": "docker-compose -f ${localWorkspaceFolder}/docker-compose.yml up -d postgres pgadmin",
+
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/local/bin/python",
+        "python.linting.enabled": true,
+        "python.linting.pylintEnabled": false,
+        "python.formatting.provider": "black",
+        "editor.formatOnSave": true,
+        "files.exclude": {
+          "**/__pycache__": true,
+          "**/*.pyc": true
+        }
+      },
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode"
+      ]
+    }
+  },
+
+  "containerEnv": {
+    "DATABASE_URL": "postgresql://developer:devpassword@postgres:5432/canner_dev",
+    "FLASK_ENV": "development",
+    "FLASK_DEBUG": "1"
+  },
+
+  "forwardPorts": [5000, 5432, 8080],
+
+  "portsAttributes": {
+    "5000": {
+      "label": "Backend API",
+      "onAutoForward": "notify"
+    },
+    "5432": {
+      "label": "PostgreSQL",
+      "onAutoForward": "silent"
+    },
+    "8080": {
+      "label": "pgAdmin",
+      "onAutoForward": "notify"
+    }
+  },
+
+  "postCreateCommand": "pip install -r /workspace/backend/requirements.txt && cd /workspace/browser-extension && npm install",
+
+  "shutdownAction": "stopContainer",
+  "remoteUser": "vscode"
+}

@@ -66,7 +66,7 @@ python app.py
 - 🔧 All dev tools ready (black, pylint, pytest, ipython)
 - 🔄 Instant onboarding for new developers
 
-📖 **Full guide:** [DEV_CONTAINER_SETUP.md](DEV_CONTAINER_SETUP.md)
+📖 **Full guide:** [.devcontainer/README.md](.devcontainer/README.md)
 
 ---
 
