@@ -54,7 +54,7 @@ cd canner
    - Using Dev Containers
      Press F2 then: Dev Containers: Rebuild and Reopen in Containers
 
-   
+
    cd backend && python -m venv venv && source venv/bin/activate && pip install -r requirements.txt && python app.py
    ```
 
@@ -150,6 +150,115 @@ dist/
    - Check Console tab for any error messages
    - Look for "Canner: Content script loaded" message
 
+## 🔄 GitHub Flow
+
+We follow the GitHub Flow for contributions. Here's the proper workflow:
+
+### 1. Fork the Repository
+
+- **Go to the main repository** on GitHub
+- **Click the "Fork" button** in the top-right corner
+- **This creates your own copy** of the repository under your GitHub account
+
+### 2. Clone Your Fork
+
+- **Clone your forked repository** to your local machine
+  ```bash
+  git clone https://github.com/yourusername/canner.git
+  cd canner
+  ```
+- **Add the original repository as upstream**
+  ```bash
+  git remote add upstream https://github.com/piyushsachdeva/canner.git
+  ```
+
+### 3. Create a Feature Branch
+
+- **Create a new branch** from `main` for your feature or fix
+  ```bash
+  git checkout -b feature/your-feature-name
+  ```
+- Use descriptive branch names: `feature/add-emoji-support` or `fix/login-bug`
+
+### 4. Make Your Changes
+
+- **Edit files** and implement your feature or fix
+- Keep commits small and focused
+- Write clear, descriptive commit messages
+
+### 5. Pull Latest Changes from Upstream
+
+- **Before committing, sync with the original repository**
+  ```bash
+  git fetch upstream
+  git pull upstream main
+  ```
+- **Resolve any merge conflicts** if they occur
+- This ensures your changes are based on the latest code
+
+### 6. Add and Commit Your Changes
+
+- **Stage your changes**
+  ```bash
+  git add .
+  ```
+- **Commit with a descriptive message**
+  ```bash
+  git commit -m "feat: add emoji support to chat messages"
+  ```
+
+### 7. Push to Your Fork
+
+- **Push your branch** to your forked repository
+  ```bash
+  git push origin feature/your-feature-name
+  ```
+
+### 8. Open a Pull Request
+
+- **Go to your fork** on GitHub
+- **Click "Compare & pull request"** button
+- **Fill in the PR details:**
+  - Provide a clear description of your changes
+  - Reference any related issues (e.g., "Fixes #123")
+  - Add screenshots or videos for UI changes
+
+### 9. Respond to Feedback
+
+- **Review comments** from maintainers
+- **Make requested changes** in your local branch
+- **Commit and push updates** to the same branch
+  ```bash
+  git add .
+  git commit -m "fix: address review feedback"
+  git push origin feature/your-feature-name
+  ```
+- The PR will update automatically
+
+### 10. After Merge
+
+- **Pull the latest changes** to your local main branch
+  ```bash
+  git checkout main
+  git pull upstream main
+  ```
+- **Delete your feature branch** (optional cleanup)
+  ```bash
+  git branch -d feature/your-feature-name
+  git push origin --delete feature/your-feature-name
+  ```
+
+### Branch Naming Conventions
+
+- `feature/` - New features (e.g., `feature/chat-history`)
+- `fix/` - Bug fixes (e.g., `fix/message-encoding`)
+- `docs/` - Documentation updates (e.g., `docs/api-reference`)
+- `refactor/` - Code refactoring (e.g., `refactor/database-queries`)
+- `test/` - Test additions or fixes (e.g., `test/api-endpoints`)
+
+
+
+
 ## 🐛 Bug Reports
 
 ### Good Bug Reports Include:
@@ -159,7 +268,6 @@ dist/
 3. **Expected vs actual behavior**
 4. **Environment details** (OS, browser, version)
 5. **Screenshots or videos** if applicable
-
 
 ## 💡 Feature Requests
 
