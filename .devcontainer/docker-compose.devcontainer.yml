@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  # Development container
+  devcontainer:
+    build:
+      context: .
+      dockerfile: .devcontainer/Dockerfile
+    container_name: canner_devcontainer
+    environment:
+      - DATABASE_URL=postgresql://developer:devpassword@postgres:5432/canner_dev
+      - FLASK_ENV=development
+      - FLASK_DEBUG=1
+    volumes:
+      - .:/workspace:cached
+    command: sleep infinity
+    networks:
+      - canner_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+  
+  # Ensure PostgreSQL runs
+  postgres:
+    profiles: []
+  
+  # Ensure pgAdmin runs  
+  pgadmin:
+    profiles: []

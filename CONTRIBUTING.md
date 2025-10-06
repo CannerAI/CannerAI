@@ -52,7 +52,7 @@ cd canner
 
    ```bash
    - Using Dev Containers
-     Press F2 then: Dev Containers: Rebuild and Reopen in Containers
+     Press F1 then: Dev Containers: Rebuild and Reopen in Containers
 
 
    cd backend && python -m venv venv && source venv/bin/activate && pip install -r requirements.txt && python app.py
@@ -129,6 +129,122 @@ dist/
 3. **Verify Installation:**
    - Extension should appear in the temporary extensions list
    - Check the browser toolbar for the extension icon
+
+
+### Access pgAdmin & Configure Database
+
+After building the frontend, you can access the database management interface:
+
+1. **Open pgAdmin in Browser:**
+   
+   Navigate to: **http://localhost:8080**
+
+2. **Login to pgAdmin:**
+   
+   - **Email:** `admin@canner.dev`
+   - **Password:** `admin123`
+
+3. **Register PostgreSQL Server:**
+   
+   a. Right-click **"Servers"** in the left sidebar
+   
+   b. Select **"Register" → "Server"**
+   
+   c. **General Tab:**
+      - Name: `Canner Dev` (or any name you prefer)
+   
+   d. **Connection Tab:**
+      - Host name/address: `postgres` ⚠️ **Important:** Use `postgres` (container name), not `localhost`
+      - Port: `5432`
+      - Maintenance database: `canner_dev`
+      - Username: `developer`
+      - Password: `devpassword`
+      - ☑️ Check "Save password" (optional, for convenience)
+   
+   e. Click **"Save"**
+
+4. **Browse the Database:**
+   
+   Once connected, expand the tree structure:
+   ```
+   Servers
+     └─ Canner Dev
+         └─ Databases
+             └─ canner_dev
+                 └─ Schemas
+                     └─ public
+                         └─ Tables
+                             └─ responses
+   ```
+
+5. **Common Database Tasks:**
+   
+   - **View table data:** Right-click on `responses` → "View/Edit Data" → "All Rows"
+   - **Run SQL queries:** Right-click on `canner_dev` → "Query Tool"
+   - **Check table structure:** Expand `responses` → Click "Columns"
+
+> **Tip:** If you can't connect, wait 10-20 seconds for PostgreSQL to fully initialize, then try again.
+
+### Check Tables Using psql (Command Line)
+
+Alternatively, you can use the PostgreSQL command-line tool to inspect the database:
+
+1. **Connect to PostgreSQL:**
+   
+   ```bash
+   # From inside the dev container or backend container
+   psql -h postgres -U developer -d canner_dev
+   
+   # From your host machine
+   psql -h localhost -p 5432 -U developer -d canner_dev
+   ```
+   
+   When prompted, enter password: `devpassword`
+
+2. **Useful psql Commands:**
+   
+   ```sql
+   -- List all databases
+   \l
+   
+   -- Connect to canner_dev database (if not already connected)
+   \c canner_dev
+   
+   -- List all tables
+   \dt
+   
+   -- Describe the responses table structure
+   \d responses
+   
+   -- View all data in responses table
+   SELECT * FROM responses;
+   
+   -- Count total responses
+   SELECT COUNT(*) FROM responses;
+   
+   -- View recent responses (last 10)
+   SELECT id, title, created_at FROM responses ORDER BY created_at DESC LIMIT 10;
+   
+   -- Search responses by title
+   SELECT * FROM responses WHERE title LIKE '%example%';
+   
+   -- Exit psql
+   \q
+   ```
+
+3. **Quick Database Health Check:**
+   
+   ```bash
+   # Test database connection (one-liner)
+   psql -h postgres -U developer -d canner_dev -c "SELECT COUNT(*) as total_responses FROM responses;"
+   
+   # View database version
+   psql -h postgres -U developer -d canner_dev -c "SELECT version();"
+   
+   # Check if table exists
+   psql -h postgres -U developer -d canner_dev -c "\dt responses"
+   ```
+
 
 ### Test the Extension
 
