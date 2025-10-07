@@ -26,6 +26,12 @@ chrome.storage.local.set({
   screenResolution: `${screen.width}x${screen.height}`
 });
 
+// Footer: populate current year
+const yearEl = document.getElementById('currentYear');
+if (yearEl) {
+  yearEl.textContent = new Date().getFullYear().toString();
+}
+
 // Smooth scroll navigation
 navLinks.forEach(link => {
   link.addEventListener('click', (e) => {
@@ -196,7 +202,13 @@ const typedText = document.getElementById('typedText') as HTMLElement;
 const fullMessage = "Thank you for reaching out! I'm very interested in learning more about the opportunities at The CloudOps Community. Could we schedule a quick call next week?";
 
 let animationRunning = false;
-let currentAnimationTimeout: number | null = null;
+let currentAnimationTimeouts: number[] = [];
+
+const clearAllAnimationTimeouts = () => {
+  if (currentAnimationTimeouts.length === 0) return;
+  currentAnimationTimeouts.forEach(id => window.clearTimeout(id));
+  currentAnimationTimeouts = [];
+};
 
 const animateWorkflow = () => {
   if (animationRunning) return;
@@ -208,16 +220,17 @@ const animateWorkflow = () => {
   if (animatedCursor) animatedCursor.classList.remove('active');
 
   // Step 1: Show cursor after delay
-  currentAnimationTimeout = window.setTimeout(() => {
+  const t1 = window.setTimeout(() => {
     if (animatedCursor) {
       animatedCursor.classList.add('active');
       // Move cursor to button position
       moveCursorToButton();
     }
   }, 300);
+  currentAnimationTimeouts.push(t1);
 
   // Step 2: Click the button (after cursor reaches it)
-  currentAnimationTimeout = window.setTimeout(() => {
+  const t2 = window.setTimeout(() => {
     if (cannerButton) {
       cannerButton.classList.add('animate-click');
       window.setTimeout(() => {
@@ -225,22 +238,25 @@ const animateWorkflow = () => {
       }, 300);
     }
   }, 1700);
+  currentAnimationTimeouts.push(t2);
 
   // Step 3: Start typing animation (after button click completes)
-  currentAnimationTimeout = window.setTimeout(() => {
+  const t3 = window.setTimeout(() => {
     if (typingMessage) {
       typingMessage.style.opacity = '1';
     }
     typeText();
   }, 2200);
+  currentAnimationTimeouts.push(t3);
 
   // Step 4: Hide cursor and reset
-  currentAnimationTimeout = window.setTimeout(() => {
+  const t4 = window.setTimeout(() => {
     if (animatedCursor) {
       animatedCursor.classList.remove('active');
     }
     animationRunning = false;
   }, 2200 + fullMessage.length * 30 + 1500);
+  currentAnimationTimeouts.push(t4);
 };
 
 const moveCursorToButton = () => {
@@ -272,8 +288,9 @@ const typeText = () => {
   const typeChar = () => {
     if (charIndex < fullMessage.length) {
       typedText.textContent = fullMessage.substring(0, charIndex + 1);
-      charIndex++;
-      currentAnimationTimeout = window.setTimeout(typeChar, 30);
+  charIndex++;
+  const t = window.setTimeout(typeChar, 30);
+  currentAnimationTimeouts.push(t);
     } else {
       // Add brief cursor blink at end
       typedText.classList.add('typing-cursor');
@@ -290,9 +307,9 @@ const heroObserver = new IntersectionObserver((entries) => {
   entries.forEach(entry => {
     if (entry.isIntersecting && !animationRunning) {
       // Start first animation after a delay
-      window.setTimeout(() => {
-        animateWorkflow();
-      }, 500);
+          window.setTimeout(() => {
+            animateWorkflow();
+          }, 500);
     }
   });
 }, { threshold: 0.3 });
@@ -308,3 +325,44 @@ setInterval(() => {
     animateWorkflow();
   }
 }, 8000);
+
+// Restart animation when Quick Response button is clicked
+if (cannerButton) {
+  cannerButton.addEventListener('click', (e) => {
+    e.preventDefault();
+    // clear any running timeouts and stop current animation
+    clearAllAnimationTimeouts();
+    animationRunning = false;
+    // reset visual state
+    if (typedText) typedText.textContent = '';
+    if (typingMessage) typingMessage.style.opacity = '0';
+    if (animatedCursor) animatedCursor.classList.remove('active');
+    // start animation immediately
+    animateWorkflow();
+  });
+}
+
+// Interactive steps: click or keyboard to reveal hint and scroll to target
+const steps = document.querySelectorAll('.step[role="button"]');
+steps.forEach(step => {
+  const el = step as HTMLElement;
+  el.addEventListener('click', () => {
+    const target = el.dataset.target;
+    if (target) {
+      const targetEl = document.querySelector(target) as HTMLElement;
+      if (targetEl) {
+        targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+    // toggle pressed state briefly to show hint
+    el.setAttribute('aria-pressed', 'true');
+    setTimeout(() => el.setAttribute('aria-pressed', 'false'), 2000);
+  });
+
+  el.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      el.click();
+    }
+  });
+});

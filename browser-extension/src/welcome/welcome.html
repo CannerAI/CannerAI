@@ -83,7 +83,7 @@
                 <div class="message-interface">
                   <div class="message-thread" id="messageThread">
                     <div class="message received">
-                      <div class="message-avatar">JD</div>
+                      <div class="message-avatar">CC</div>
                       <div class="message-content">
                         <p>
                           Hi! I'd love to connect and discuss opportunities at
@@ -113,22 +113,21 @@
         </div>
       </section>
 
-      <!-- Features Section -->
-      <section class="features">
+  <!-- Features Section -->
+  <section id="features" class="features">
         <div class="section-container">
           <div class="section-header">
             <h2 class="section-title">
-              Everything you need to excel on LinkedIn
+              Key Features
             </h2>
             <p class="section-subtitle">
-              Powerful features designed for busy professionals who value their
-              time.
+              Everything you need to excel on LinkedIn
             </p>
           </div>
 
-          <div class="features-grid">
-            <div class="feature-card">
-              <div class="feature-icon">
+          <div class="features-grid" role="list">
+            <div class="feature-card" role="listitem" tabindex="0">
+              <div class="feature-icon" aria-hidden="true">
                 <svg
                   width="24"
                   height="24"
@@ -144,15 +143,15 @@
                   />
                 </svg>
               </div>
-              <h3 class="feature-title">Smart Message Templates</h3>
+              <h3 class="feature-title">Smart Templates</h3>
               <p class="feature-description">
-                Save and reuse your best messages with intelligent categorization
-                and quick access.
+                Save and reuse your best messages with intelligent categorization.
               </p>
+              <div class="feature-example" aria-hidden="true">Hi {{name}}, great to connect — are you available for a quick chat?</div>
             </div>
 
-            <div class="feature-card">
-              <div class="feature-icon">
+            <div class="feature-card" role="listitem" tabindex="0">
+              <div class="feature-icon" aria-hidden="true">
                 <svg
                   width="24"
                   height="24"
@@ -170,13 +169,13 @@
               </div>
               <h3 class="feature-title">Lightning Fast</h3>
               <p class="feature-description">
-                Insert responses with a single click or keyboard shortcut. No more
-                typing the same messages.
+                Insert responses instantly with one click or keyboard shortcut.
               </p>
+              <div class="feature-example" aria-hidden="true">Use <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>L</kbd> to open quick responses.</div>
             </div>
 
-            <div class="feature-card">
-              <div class="feature-icon">
+            <div class="feature-card" role="listitem" tabindex="0">
+              <div class="feature-icon" aria-hidden="true">
                 <svg
                   width="24"
                   height="24"
@@ -194,37 +193,13 @@
               </div>
               <h3 class="feature-title">Powerful Search</h3>
               <p class="feature-description">
-                Find any saved response instantly with advanced search and
-                filtering capabilities.
+                Find any saved response instantly with advanced search.
               </p>
+              <div class="feature-example" aria-hidden="true">Search by tag: "intro", "follow-up", "recruiter"</div>
             </div>
 
-            <div class="feature-card">
-              <div class="feature-icon">
-                <svg
-                  width="24"
-                  height="24"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                >
-                  <path
-                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  />
-                </svg>
-              </div>
-              <h3 class="feature-title">Cloud Sync</h3>
-              <p class="feature-description">
-                Access your templates across all devices with secure cloud
-                synchronization.
-              </p>
-            </div>
-
-            <div class="feature-card">
-              <div class="feature-icon">
+            <div class="feature-card" role="listitem" tabindex="0">
+              <div class="feature-icon" aria-hidden="true">
                 <svg
                   width="24"
                   height="24"
@@ -242,138 +217,88 @@
               </div>
               <h3 class="feature-title">Privacy First</h3>
               <p class="feature-description">
-                Your data stays secure with end-to-end encryption and local
-                storage options.
+                Your data stays secure with end-to-end encryption.
               </p>
-            </div>
-
-            <div class="feature-card">
-              <div class="feature-icon">
-                <svg
-                  width="24"
-                  height="24"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                >
-                  <path
-                    d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  />
-                </svg>
-              </div>
-              <h3 class="feature-title">Smart Suggestions</h3>
-              <p class="feature-description">
-                Get intelligent recommendations for responses based on context and
-                conversation history.
-              </p>
+              <div class="feature-example" aria-hidden="true">Data stays in your account unless you choose to sync.</div>
             </div>
           </div>
         </div>
       </section>
 
-      <!-- How It Works -->
-      <section class="how-it-works">
+  <!-- How It Works -->
+  <section id="how-it-works" class="how-it-works">
         <div class="section-container">
           <div class="section-header">
             <h2 class="section-title">How it works</h2>
-            <p class="section-subtitle">
-              Get started in three simple steps
-            </p>
           </div>
 
           <div class="steps-container">
-            <div class="step">
+            <div class="step" role="button" tabindex="0" data-target="#features" aria-pressed="false">
               <div class="step-number">1</div>
               <div class="step-content">
-                <h3>Save Your Messages</h3>
-                <p>
-                  Create and organize your message templates with tags and
-                  categories for easy access.
-                </p>
+                <h3>Save templates</h3>
+                <p>Create and organize message templates with tags</p>
+                <div class="step-hint" aria-hidden="true">Tip: add tags like <code>intro</code>, <code>follow-up</code></div>
               </div>
             </div>
-            <div class="step-arrow">→</div>
-            <div class="step">
+
+            <div class="step" role="button" tabindex="0" data-target=".hero-visual" aria-pressed="false">
               <div class="step-number">2</div>
               <div class="step-content">
-                <h3>Compose on LinkedIn</h3>
-                <p>
-                  When writing messages, click the Quick Response button or use
-                  Ctrl+Shift+L.
-                </p>
+                <h3>Compose messages</h3>
+                <p>Open Quick Response while writing</p>
+                <div class="step-hint" aria-hidden="true">Keyboard: <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>L</kbd></div>
               </div>
             </div>
-            <div class="step-arrow">→</div>
-            <div class="step">
+
+            <div class="step" role="button" tabindex="0" data-target="#features" aria-pressed="false">
               <div class="step-number">3</div>
               <div class="step-content">
-                <h3>Insert Instantly</h3>
-                <p>
-                  Select from your saved responses and insert them with one click.
-                </p>
+                <h3>Insert instantly</h3>
+                <p>Select and insert your saved responses</p>
+                <div class="step-hint" aria-hidden="true">Click the template to insert or press <kbd>Enter</kbd></div>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      <!-- CTA Section -->
-      <section class="cta">
-        <div class="cta-content">
-          <h2>
-            Ready to supercharge your LinkedIn networking?
-          </h2>
-          <p>
-            Join thousands of professionals who save hours every week with
-            Canner.
-          </p>
-          <div class="cta-buttons">
-            <a
-              href="https://www.linkedin.com"
-              target="_blank"
-              class="btn btn-primary"
-            >
-              Start Using Canner
-            </a>
-            <a
-              href="https://github.com/piyushsachdeva/canner"
-              target="_blank"
-              class="btn btn-secondary"
-            >
-              Learn More
-            </a>
+      <!-- CTA Section (Minimal & Mature) -->
+      <section class="cta cta-minimal" aria-labelledby="cta-heading">
+        <div class="cta-inner">
+          <h2 id="cta-heading" class="cta-title">Ready to level up your LinkedIn outreach?</h2>
+          <div class="cta-actions">
+            <a href="https://github.com/piyushsachdeva/canner" target="_blank" class="cta-primary" aria-label="Start using Canner on LinkedIn">Get started — it’s free</a>
+            <a href="https://github.com/piyushsachdeva/canner" target="_blank" class="cta-link" aria-label="Learn more about Canner on GitHub">Read the docs</a>
           </div>
         </div>
       </section>
 
-      <!-- Footer -->
-      <footer class="footer">
-        <div class="footer-content">
-          <div class="footer-brand">
-            <img src="../icons/icon128.png" alt="Canner" class="footer-logo" />
-            <span>Canner</span>
+      <!-- Footer (Modern) -->
+      <footer class="footer footer-modern" role="contentinfo">
+        <div class="footer-inner">
+          <div class="footer-left">
+            <a href="#" class="brand" aria-label="Canner home">
+              <img src="../icons/icon128.png" alt="Canner" class="brand-logo" />
+              <span class="brand-name">Canner</span>
+            </a>
+            <div class="brand-tag">LinkedIn productivity — simplified</div>
           </div>
-          <div class="footer-links">
-            <a
-              href="https://github.com/piyushsachdeva/canner"
-              target="_blank"
-              >Documentation</a
-            >
-            <a
-              href="https://github.com/piyushsachdeva/canner/issues"
-              target="_blank"
-              >Support</a
-            >
-            <a
-              href="https://github.com/piyushsachdeva/canner/blob/main/PRIVACY.md"
-              target="_blank"
-              >Privacy</a
-            >
+
+          <nav class="footer-nav" aria-label="Footer navigation">
+            <a href="https://github.com/piyushsachdeva/canner" target="_blank">Docs</a>
+            <a href="https://github.com/piyushsachdeva/canner/issues" target="_blank">Support</a>
+            <a href="https://github.com/piyushsachdeva/canner/blob/main/PRIVACY.md" target="_blank">Privacy</a>
+          </nav>
+
+          <div class="footer-right">
+            <div class="socials" aria-hidden="true">
+              <a href="https://www.linkedin.com" target="_blank" class="social-icon" title="LinkedIn">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452z"/></svg>
+              </a>
+            </div>
+            <div class="footer-meta">v1.0.0</div>
           </div>
-          <div class="footer-version">v1.0.0</div>
         </div>
       </footer>
     </div>
