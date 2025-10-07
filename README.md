@@ -18,75 +18,10 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 
 
 ## 🚀 Quick Start
-
-### Prerequisites
-
-- **Docker & Docker Compose** (recommended)
-- **Node.js 18+** (for local development)
-- **Python 3.12+** (for backend development)
-
-### 🐳 **Docker Setup (Recommended)**
-
-```bash
-# Clone the repository
-git clone https://github.com/piyushsachdeva/canner.git
-cd canner
-
-# Start all services
-docker-compose up --build
-
-# The backend API will be available at: http://localhost:5000
-# Load the browser extension from: ./browser-extension/dist
-```
-
-## � **API Documentation**
-
-### Endpoints
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/health` | Health check with database status |
-| `GET` | `/api/responses` | Get all responses (supports `?search=query`) |
-| `POST` | `/api/responses` | Create new response |
-| `GET` | `/api/responses/:id` | Get specific response |
-| `PUT` | `/api/responses/:id` | Update response |
-| `DELETE` | `/api/responses/:id` | Delete response |
-
-### Response Format
-
-```json
-{
-  "id": "uuid-string",
-  "title": "Response Title",
-  "content": "Response content here...",
-  "tags": ["tag1", "tag2"],
-  "created_at": "2025-10-03T12:00:00Z",
-  "updated_at": "2025-10-03T12:00:00Z"
-}
-```
-
-## 🔧 **Configuration**
-
-### Environment Variables
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `DATABASE_URL` | Database connection string | `sqlite:///responses.db` |
-| `FLASK_ENV` | Flask environment | `production` |
-| `FLASK_DEBUG` | Enable debug mode | `false` |
+A detailed Quick Start is written in our [Contributing Guide](CONTRIBUTING.md). You can go through it for more details. 
 
 
-
-## 🔐 **Security**
-
-- All database connections use secure connection strings
-- No sensitive data is stored in browser storage
-- API endpoints include proper validation and sanitization
-- Docker containers run with non-root users
-
-For security issues, please see our [Security Policy](SECURITY.md).
-
-## � **License**
+## **License**
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
