@@ -32,4 +32,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - 🐛 **Issues**: [GitHub Issues](https://github.com/piyushsachdeva/canner/issues)
 - 💬 **Discord**: [Join our Discord](https://discord.com/invite/the-cloudops-community-1030513521122885642)
 
-Made with ❤️ for developers who type the same things repeatedly.
+Made with ❤️ for developers who type the same things repeatedly
