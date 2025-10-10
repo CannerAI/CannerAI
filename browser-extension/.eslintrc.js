@@ -46,6 +46,6 @@ module.exports = {
   ignorePatterns: [
     "dist/",
     "node_modules/",
-    "*.js", // Ignore compiled JS files
+    // Removed "*.js" to avoid ignoring all JS files; only ignore build output directories
   ],
 };
