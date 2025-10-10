@@ -23,6 +23,7 @@ How to run:
 
 """
 
+import json
 import pytest
 from playwright.sync_api import APIRequestContext, sync_playwright
 
@@ -50,7 +51,7 @@ def created_response_id(playwright_context):
         "content": "Test Content",
         "tags": ["test", "api"]
     }
-    create_resp = playwright_context.post("/api/responses", data=payload)
+    create_resp = playwright_context.post("/api/responses", data = json.dumps(payload),headers = {"Content-Type": "application/json"})
     assert create_resp.status == 201
     created = create_resp.json()
     response_id = created["id"]
@@ -64,7 +65,7 @@ def test_create_response(playwright_context):
         "content": "Test Content",
         "tags": ["test", "api"]
     }
-    create_resp = playwright_context.post("/api/responses", data=payload)
+    create_resp = playwright_context.post("/api/responses", data = json.dumps(payload),headers = {"Content-Type": "application/json"})
     assert create_resp.status == 201
     created = create_resp.json()
     assert created["title"] == payload["title"]
@@ -82,7 +83,7 @@ def test_get_response(playwright_context, created_response_id):
 
 def test_update_response(playwright_context, created_response_id):
     update_payload = {"title": "Updated Title", "content": "Updated Content", "tags": ["updated"]}
-    update_resp = playwright_context.put(f"/api/responses/{created_response_id}", data=update_payload)
+    update_resp = playwright_context.put(f"/api/responses/{created_response_id}", data = json.dumps(update_payload),headers = {"Content-Type": "application/json"})
     assert update_resp.status == 200
     updated = update_resp.json()
     assert updated["title"] == "Updated Title"
@@ -101,11 +102,11 @@ def test_delete_response(playwright_context, created_response_id):
 def test_create_response_missing_fields(playwright_context):
     # Missing title
     payload = {"content": "No title"}
-    resp = playwright_context.post("/api/responses", data=payload)
+    resp = playwright_context.post("/api/responses", data = json.dumps(payload),headers = {"Content-Type": "application/json"})
     assert resp.status == 400
     # Missing content
     payload = {"title": "No content"}
-    resp = playwright_context.post("/api/responses", data=payload)
+    resp = playwright_context.post("/api/responses", data = json.dumps(payload),headers = {"Content-Type": "application/json"})
     assert resp.status == 400
 
 def test_get_response_not_found(playwright_context):
@@ -114,7 +115,7 @@ def test_get_response_not_found(playwright_context):
 
 def test_update_response_not_found(playwright_context):
     payload = {"title": "x", "content": "y", "tags": []}
-    resp = playwright_context.put("/api/responses/nonexistent-id", data=payload)
+    resp = playwright_context.put("/api/responses/nonexistent-id", data = json.dumps(payload),headers = {"Content-Type": "application/json"})
     assert resp.status == 404
 
 def test_delete_response_not_found(playwright_context):
