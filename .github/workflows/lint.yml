@@ -81,10 +81,6 @@ jobs:
           pip install yamllint
           # Markdown linting
           npm install -g markdownlint-cli
-          # Dockerfile linting
-          wget -O hadolint https://github.com/hadolint/hadolint/releases/download/v2.12.0/hadolint-Linux-x86_64
-          chmod +x hadolint
-          sudo mv hadolint /usr/local/bin/
 
       - name: 🔧 Lint YAML files
         run: yamllint -c .yamllint.yml .
@@ -93,5 +89,7 @@ jobs:
         run: markdownlint "**/*.md" --config .markdownlint.json --ignore node_modules
 
       - name: 🐳 Lint Dockerfiles
-        run: |
-          find . -name "Dockerfile*" -not -path "./node_modules/*" -not -path "./.git/*" | xargs hadolint
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          recursive: true
+          failure-threshold: error
