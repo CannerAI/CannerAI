@@ -42,7 +42,6 @@ def test_health_check(playwright_context: APIRequestContext):
     assert data["status"] == "healthy"
 
 
-
 # Fixture to create a response and yield its ID, then clean up
 @pytest.fixture
 def created_response_id(playwright_context):
