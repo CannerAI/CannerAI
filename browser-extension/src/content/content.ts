@@ -5,7 +5,7 @@ console.log("Canner: Content script loaded");
 
 // Configuration
 const CONFIG = {
-  API_URL: "http://localhost:5000/api",
+  API_URL: "http://localhost:5000",
   BUTTON_ICON: "💬",
   BUTTON_COLOR: "#0a66c2", // LinkedIn blue
 };
