@@ -8,18 +8,19 @@
 [![Python](https://img.shields.io/badge/Python-3.12-3776AB.svg)](https://python.org)
 
 ## ✨ Features
+
 - Select from a variety of pre-defined response templates
 - Format linked post with Ease
 
 ## 📄 **Contributing**
 
 We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+
 - Join our Discord community for discussions and support. [Join Discord](https://discord.com/invite/the-cloudops-community-1030513521122885642)
 
-
 ## 🚀 Quick Start
-A detailed Quick Start is written in our [Contributing Guide](CONTRIBUTING.md). You can go through it for more details. 
 
+A detailed Quick Start is written in our [Contributing Guide](CONTRIBUTING.md). You can go through it for more details.
 
 ## **License**
 
@@ -31,4 +32,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - 🐛 **Issues**: [GitHub Issues](https://github.com/piyushsachdeva/canner/issues)
 - 💬 **Discord**: [Join our Discord](https://discord.com/invite/the-cloudops-community-1030513521122885642)
 
-Made with ❤️ for developers who type the same things repeatedly
+Made with ❤️ for developers who type the same things repeatedly.
