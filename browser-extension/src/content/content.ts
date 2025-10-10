@@ -497,25 +497,37 @@ function insertText(box: HTMLElement, text: string) {
     // Contenteditable divs (LinkedIn, X/Twitter, Facebook)
     console.log("Social Helper: Inserting into contenteditable");
 
-    // Clear existing content and insert new text
-    box.innerHTML = "";
-    box.innerText = text;
+    // Focus and move cursor to end
+    box.focus();
+    const sel = window.getSelection();
+    const range = document.createRange();
+    range.selectNodeContents(box);
+    range.collapse(false);
+    sel?.removeAllRanges();
+    sel?.addRange(range);
 
-    // Trigger events to update the platform's state
-    box.dispatchEvent(new Event("input", { bubbles: true }));
-    box.dispatchEvent(new Event("change", { bubbles: true }));
-    box.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true }));
-    box.dispatchEvent(new KeyboardEvent("keyup", { bubbles: true }));
+    // Try execCommand first
+    let inserted = false;
+    try {
+      inserted = document.execCommand('insertText', false, text);
+    } catch (e) {
+      inserted = false;
+    }
 
-    // Move cursor to end
-    setTimeout(() => {
-      const range = document.createRange();
-      const sel = window.getSelection();
-      range.selectNodeContents(box);
-      range.collapse(false);
+    if (!inserted || !box.innerText.includes(text)) {
+      // Fallback: insert text node at cursor
+      range.deleteContents();
+      const tn = document.createTextNode(text);
+      range.insertNode(tn);
+      range.setStartAfter(tn);
+      range.setEndAfter(tn);
       sel?.removeAllRanges();
       sel?.addRange(range);
-    }, 10);
+      // Fire input and change events
+      box.dispatchEvent(new InputEvent('input', { bubbles: true, cancelable: true, data: text, inputType: 'insertText' }));
+      box.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    console.log('inserted');
   } else if (
     box.tagName === "TEXTAREA" ||
     (box.tagName === "INPUT" && (box as HTMLInputElement).type === "text")
