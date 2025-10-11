@@ -4,11 +4,12 @@
 
 We take security seriously and will provide security updates for the following versions:
 
-| Version | Supported          |
-| ------- | ------------------ |
-| Latest  | :white_check_mark: |
-| < Latest| :x:                |
+| Version                | Supported          |
+| ---------------------- | ------------------ |
+| Latest major version   | :white_check_mark: |
+| Older major versions   | :x:                |
 
+**Note:** Only the latest major version (e.g., v2.x) as published on the official release channel (e.g., npm, GitHub Releases) is supported with security updates. Users are encouraged to upgrade to the latest major version to receive security fixes.
 ## Reporting a Vulnerability
 
 We appreciate your efforts to responsibly disclose security vulnerabilities. To report a security issue:
