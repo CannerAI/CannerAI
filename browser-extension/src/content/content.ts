@@ -690,8 +690,28 @@ function addKeyboardShortcuts() {
 let saveButton: HTMLElement | null = null;
 
 function addTextSelectionHandler() {
-  document.addEventListener("mouseup", handleTextSelection);
-  document.addEventListener("keyup", handleTextSelection);
+  console.log("Canner: Adding text selection handlers");
+  
+  document.addEventListener("mouseup", () => {
+    setTimeout(handleTextSelection, 50);
+  });
+  
+  document.addEventListener("keyup", () => {
+    setTimeout(handleTextSelection, 50);
+  });
+  
+  document.addEventListener("selectionchange", () => {
+    setTimeout(handleTextSelection, 100);
+  });
+  
+  document.addEventListener("mousedown", (e) => {
+    if (saveButton && !saveButton.contains(e.target as Node)) {
+      if (saveButton) {
+        saveButton.remove();
+        saveButton = null;
+      }
+    }
+  });
 }
 
 function handleTextSelection() {
@@ -726,34 +746,54 @@ function handleTextSelection() {
     </button>
   `;
 
-  // Position near the selection (bottom right)
   saveButton.style.position = "fixed";
-  saveButton.style.left = `${rect.right + 5}px`;
-  saveButton.style.top = `${rect.bottom + 5}px`;
-  saveButton.style.zIndex = "10001";
+  saveButton.style.left = `${Math.min(rect.right + 5, window.innerWidth - 50)}px`;
+  saveButton.style.top = `${Math.min(rect.bottom + 5, window.innerHeight - 50)}px`;
+  saveButton.style.zIndex = "999999";
+  saveButton.style.pointerEvents = "all";
+  saveButton.style.display = "block";
+  saveButton.style.visibility = "visible";
 
   document.body.appendChild(saveButton);
 
-  // Handle save button click
   const btn = saveButton.querySelector(
     ".lh-save-selection-btn"
   ) as HTMLButtonElement;
-  btn.addEventListener("click", async (e) => {
+  
+  const textToSave = selectedText;
+  
+  const clickHandler = async (e: Event) => {
     e.preventDefault();
     e.stopPropagation();
+    e.stopImmediatePropagation();
 
-    console.log("Canner: Saving selected text:", selectedText);
+    console.log("Canner: Plus button clicked! Saving selected text:", textToSave);
 
-    // Save directly without dialog
-    await saveResponseDirectly(selectedText);
-
+    // Remove button immediately to prevent double clicks
     if (saveButton) {
       saveButton.remove();
       saveButton = null;
     }
-    // Clear selection
-    selection?.removeAllRanges();
-  });
+
+    try {
+      // Save directly without dialog
+      await saveResponseDirectly(textToSave);
+      console.log("Canner: Text saved successfully");
+    } catch (error) {
+      console.error("Canner: Error saving text:", error);
+      showToast("❌ Error saving response");
+    }
+
+    // Clear selection after a short delay
+    setTimeout(() => {
+      selection?.removeAllRanges();
+    }, 100);
+  };
+  
+  btn.addEventListener("click", clickHandler, { capture: true, once: true });
+  btn.addEventListener("mousedown", clickHandler, { capture: true, once: true });
+  btn.addEventListener("touchend", clickHandler, { capture: true, once: true });
+  saveButton.addEventListener("click", clickHandler, { capture: true, once: true });
 }
 
 // Show dialog to save selected text as response
@@ -896,6 +936,15 @@ function showToast(message: string) {
 // Save response directly without dialog
 async function saveResponseDirectly(text: string) {
   console.log("Canner: saveResponseDirectly called with text:", text);
+  
+  if (!text || text.trim().length === 0) {
+    console.error("Canner: No text provided to save");
+    showToast("❌ No text to save");
+    return;
+  }
+
+  // Show immediate feedback
+  showToast("💾 Saving response...");
 
   // Generate auto title from first 50 chars
   const autoTitle = text.length > 50 ? text.substring(0, 47) + "..." : text;
@@ -904,11 +953,11 @@ async function saveResponseDirectly(text: string) {
   const responseData = {
     title: autoTitle,
     content: text,
-    tags: "",
-    category: "other",
+    tags: ["linkedin"],
+    category: "linkedin-message",
   };
 
-  console.log("Canner: Attempting to save to backend:", CONFIG.API_URL);
+  console.log("Canner: Attempting to save to backend:", CONFIG.API_URL, responseData);
 
   // Try to save to backend first
   try {
@@ -940,13 +989,17 @@ async function saveResponseDirectly(text: string) {
     console.log("Canner: Saving to Chrome local storage");
     const result = await chrome.storage.local.get(["responses"]);
     const responses = result.responses || [];
-    responses.push({
-      id: Date.now(),
+    
+    const newResponse = {
+      id: Date.now().toString(),
       ...responseData,
+      tags: Array.isArray(responseData.tags) ? responseData.tags : [responseData.tags].filter(Boolean),
       created_at: timestamp,
-    });
+    };
+    
+    responses.push(newResponse);
     await chrome.storage.local.set({ responses });
-    console.log("Canner: Saved to local storage successfully");
+    console.log("Canner: Saved to local storage successfully", newResponse);
     showToast("✅ Response saved locally!");
   } catch (err) {
     console.error("Canner: Save error:", err);
@@ -959,6 +1012,37 @@ if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", init);
 } else {
   init();
+}
+
+if (window.location.hostname.includes("linkedin.com")) {
+  console.log("Canner: LinkedIn detected - adding SPA handlers");
+  
+  let currentUrl = location.href;
+  setInterval(() => {
+    if (location.href !== currentUrl) {
+      currentUrl = location.href;
+      console.log("Canner: LinkedIn URL changed, re-initializing...");
+      setTimeout(() => {
+        init();
+      }, 2000);
+    }
+  }, 1000);
+  
+  window.addEventListener('popstate', () => {
+    setTimeout(init, 1000);
+  });
+  
+  setInterval(() => {
+    const messageInputs = document.querySelectorAll('.msg-form [contenteditable="true"]');
+    if (messageInputs.length > 0) {
+      messageInputs.forEach(input => {
+        if (!input.id || !injectedElements.has(input.id)) {
+          console.log("Canner: Found new LinkedIn message input, reinitializing...");
+          setTimeout(addMessageHelpers, 500);
+        }
+      });
+    }
+  }, 3000);
 }
 
 // Listen for messages from popup or background script

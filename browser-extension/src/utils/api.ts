@@ -6,7 +6,7 @@ export interface Response {
   id?: string;
   title: string;
   content: string;
-  tags?: string[];
+  tags?: string[] | string;
   created_at?: string;
 }
 
@@ -28,7 +28,11 @@ export async function getResponses(): Promise<Response[]> {
   // Fallback to Chrome storage
   return new Promise((resolve) => {
     chrome.storage.local.get(["responses"], (result) => {
-      resolve(result.responses || []);
+      const responses = (result.responses || []).map((r: any) => ({
+        ...r,
+        tags: Array.isArray(r.tags) ? r.tags : (r.tags ? [r.tags] : [])
+      }));
+      resolve(responses);
     });
   });
 }
@@ -60,6 +64,7 @@ export async function saveResponse(response: Response): Promise<Response> {
     ...response,
     id,
     created_at: new Date().toISOString(),
+    tags: Array.isArray(response.tags) ? response.tags : (response.tags ? [response.tags] : [])
   };
 
   return new Promise((resolve) => {
