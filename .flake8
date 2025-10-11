@@ -4,21 +4,21 @@ max-line-length = 88
 max-complexity = 10
 
 # Select specific error codes to check
-select = 
-    E,   # pycodestyle errors
-    W,   # pycodestyle warnings
-    F,   # pyflakes
-    C,   # mccabe complexity
+# E - pycodestyle errors
+# W - pycodestyle warnings  
+# F - pyflakes
+# C - mccabe complexity
+select = E,W,F,C
 
 # Ignore some less critical issues for moderate strictness
-ignore = 
-    E203,  # whitespace before ':' (conflicts with black)
-    E501,  # line too long (handled by black)
-    W503,  # line break before binary operator (conflicts with black)
-    E402,  # module level import not at top of file (common in Flask apps)
+# E203 - whitespace before ':' (conflicts with black)
+# E501 - line too long (handled by black)
+# W503 - line break before binary operator (conflicts with black)
+# E402 - module level import not at top of file (common in Flask apps)
+ignore = E203,E501,W503,E402
 
 # Exclude common directories
-exclude = 
+exclude =
     .git,
     __pycache__,
     .venv,

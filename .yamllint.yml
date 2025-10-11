@@ -53,8 +53,10 @@ extends: default
 
 # Ignore patterns
 ignore: |
-  /.github/
-  /node_modules/
-  /.git/
-  /dist/
-  /build/
+  .venv/
+  venv/
+  node_modules/
+  browser-extension/node_modules/
+  .git/
+  dist/
+  build/
