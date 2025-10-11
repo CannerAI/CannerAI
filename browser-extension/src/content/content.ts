@@ -877,7 +877,7 @@ async function showSaveDialog(text: string) {
 
     // Save the response
     try {
-      const response = await fetch(`${CONFIG.API_URL}/responses`, {
+      const response = await fetch(`${CONFIG.API_URL}/api/responses`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -961,7 +961,7 @@ async function saveResponseDirectly(text: string) {
 
   // Try to save to backend first
   try {
-    const response = await fetch(`${CONFIG.API_URL}/responses`, {
+    const response = await fetch(`${CONFIG.API_URL}/api/responses`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
