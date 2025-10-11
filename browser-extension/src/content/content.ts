@@ -382,7 +382,7 @@ async function showResponseMenu(targetBox: HTMLElement, button: HTMLElement) {
     } else {
       menu.innerHTML = `
         <div class="lh-menu-header">
-          <input type="text" class="lh-search" placeholder="Search responses..." />
+          <input type="search" class="lh-search" placeholder="Search responses..." />
         </div>
         <div class="lh-menu-items">
           ${responses
@@ -691,19 +691,19 @@ let saveButton: HTMLElement | null = null;
 
 function addTextSelectionHandler() {
   console.log("Canner: Adding text selection handlers");
-  
+
   document.addEventListener("mouseup", () => {
     setTimeout(handleTextSelection, 50);
   });
-  
+
   document.addEventListener("keyup", () => {
     setTimeout(handleTextSelection, 50);
   });
-  
+
   document.addEventListener("selectionchange", () => {
     setTimeout(handleTextSelection, 100);
   });
-  
+
   document.addEventListener("mousedown", (e) => {
     if (saveButton && !saveButton.contains(e.target as Node)) {
       if (saveButton) {
@@ -747,8 +747,9 @@ function handleTextSelection() {
   `;
 
   saveButton.style.position = "fixed";
-  saveButton.style.left = `${Math.min(rect.right + 5, window.innerWidth - 50)}px`;
-  saveButton.style.top = `${Math.min(rect.bottom + 5, window.innerHeight - 50)}px`;
+  // Position at the top-center of the selected text
+  saveButton.style.left = `${Math.max(10, Math.min(rect.left + (rect.width / 2) - 18, window.innerWidth - 46))}px`;
+  saveButton.style.top = `${Math.max(10, rect.top - 45)}px`;
   saveButton.style.zIndex = "999999";
   saveButton.style.pointerEvents = "all";
   saveButton.style.display = "block";
@@ -759,9 +760,9 @@ function handleTextSelection() {
   const btn = saveButton.querySelector(
     ".lh-save-selection-btn"
   ) as HTMLButtonElement;
-  
+
   const textToSave = selectedText;
-  
+
   const clickHandler = async (e: Event) => {
     e.preventDefault();
     e.stopPropagation();
@@ -789,7 +790,7 @@ function handleTextSelection() {
       selection?.removeAllRanges();
     }, 100);
   };
-  
+
   btn.addEventListener("click", clickHandler, { capture: true, once: true });
   btn.addEventListener("mousedown", clickHandler, { capture: true, once: true });
   btn.addEventListener("touchend", clickHandler, { capture: true, once: true });
@@ -936,7 +937,7 @@ function showToast(message: string) {
 // Save response directly without dialog
 async function saveResponseDirectly(text: string) {
   console.log("Canner: saveResponseDirectly called with text:", text);
-  
+
   if (!text || text.trim().length === 0) {
     console.error("Canner: No text provided to save");
     showToast("❌ No text to save");
@@ -989,14 +990,14 @@ async function saveResponseDirectly(text: string) {
     console.log("Canner: Saving to Chrome local storage");
     const result = await chrome.storage.local.get(["responses"]);
     const responses = result.responses || [];
-    
+
     const newResponse = {
       id: Date.now().toString(),
       ...responseData,
       tags: Array.isArray(responseData.tags) ? responseData.tags : [responseData.tags].filter(Boolean),
       created_at: timestamp,
     };
-    
+
     responses.push(newResponse);
     await chrome.storage.local.set({ responses });
     console.log("Canner: Saved to local storage successfully", newResponse);
@@ -1016,7 +1017,7 @@ if (document.readyState === "loading") {
 
 if (window.location.hostname.includes("linkedin.com")) {
   console.log("Canner: LinkedIn detected - adding SPA handlers");
-  
+
   let currentUrl = location.href;
   setInterval(() => {
     if (location.href !== currentUrl) {
@@ -1027,11 +1028,11 @@ if (window.location.hostname.includes("linkedin.com")) {
       }, 2000);
     }
   }, 1000);
-  
+
   window.addEventListener('popstate', () => {
     setTimeout(init, 1000);
   });
-  
+
   setInterval(() => {
     const messageInputs = document.querySelectorAll('.msg-form [contenteditable="true"]');
     if (messageInputs.length > 0) {

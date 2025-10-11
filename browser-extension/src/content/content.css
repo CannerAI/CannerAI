@@ -65,6 +65,11 @@ body[class*="linkedin"] .social-helper-pen:hover,
   color: #1da1f2;
   filter: grayscale(0);
   transform: scale(1.1);
+  transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.social-helper-pen.pen-hover .pen-tooltip {
+  display: block;
 }
 
 body[class*="linkedin"] .social-helper-pen:hover .pen-icon,
@@ -83,6 +88,7 @@ body[class*="linkedin"] .social-helper-pen:hover .pen-icon,
   white-space: nowrap;
   transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
   letter-spacing: 0.2px;
+  display: none;
 }
 
 .social-helper-pen:hover .pen-tooltip,
@@ -94,7 +100,7 @@ body[class*="linkedin"] .social-helper-pen:hover .pen-icon,
 
 .social-helper-pen:active {
   transform: scale(0.96) translateY(0);
-  transition: all 0.1s ease;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
 /* Grammarly-style entrance animation */
@@ -115,6 +121,7 @@ body[class*="linkedin"] .social-helper-pen:hover .pen-icon,
 
 .social-helper-pen.visible {
   animation: grammarlyEntrance 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+  animation-fill-mode: both;
 }
 
 /* Smooth exit animation */
@@ -131,6 +138,7 @@ body[class*="linkedin"] .social-helper-pen:hover .pen-icon,
 
 .social-helper-pen.hiding {
   animation: grammarlyExit 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  animation-fill-mode: forwards;
 }
 
 /* ===== NEW MENU STYLES ===== */
@@ -302,14 +310,15 @@ body[class*="linkedin"] .social-helper-pen:hover .pen-icon,
   background: linear-gradient(135deg, #c41e3a 0%, #8b0000 100%);
 }
 
-.lh-search {
+.lh-menu-header>input.lh-search {
   width: 100%;
   padding: 10px 12px;
-  border: none;
-  border-radius: 6px;
   font-size: 14px;
   background: rgba(255, 255, 255, 0.95);
-  color: #333;
+  flex: 1;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  transition: border-color 0.2s;
 }
 
 .lh-search::placeholder {
@@ -317,7 +326,8 @@ body[class*="linkedin"] .social-helper-pen:hover .pen-icon,
 }
 
 .lh-search:focus {
-  outline: 2px solid rgba(255, 255, 255, 0.5);
+  outline: none;
+  border-color: #0a66c2;
 }
 
 .lh-menu-items {
