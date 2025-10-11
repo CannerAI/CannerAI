@@ -1,3 +1,7 @@
+# Python virtual environment
+.venv/
+venv/
+
 # Linting cache files
 .eslintcache
 .markdownlintcache
