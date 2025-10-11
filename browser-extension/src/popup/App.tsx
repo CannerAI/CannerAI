@@ -50,7 +50,9 @@ function App() {
       (r) =>
         r.title.toLowerCase().includes(query) ||
         r.content.toLowerCase().includes(query) ||
-        r.tags?.some((tag) => tag.toLowerCase().includes(query))
+        (r.tags && Array.isArray(r.tags) 
+          ? r.tags.some((tag: string) => tag.toLowerCase().includes(query))
+          : typeof r.tags === 'string' && r.tags.toLowerCase().includes(query))
     );
     setFilteredResponses(filtered);
   };
@@ -200,13 +202,15 @@ function App() {
               <div key={response.id} className="response-card">
                 <div className="response-title">{response.title}</div>
                 <div className="response-content">{response.content}</div>
-                {response.tags && response.tags.length > 0 && (
+                {response.tags && (
                   <div className="response-tags">
-                    {response.tags.map((tag, idx) => (
-                      <span key={idx} className="tag">
-                        {tag}
-                      </span>
-                    ))}
+                    {(Array.isArray(response.tags) ? response.tags : [response.tags])
+                      .filter(Boolean)
+                      .map((tag, idx) => (
+                        <span key={idx} className="tag">
+                          {tag}
+                        </span>
+                      ))}
                   </div>
                 )}
                 <div className="response-actions">
