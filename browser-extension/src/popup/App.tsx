@@ -14,6 +14,13 @@ function App() {
   const [loading, setLoading] = useState(true);
 
   // New response form state
+  const [isLoading, setIsLoading] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [responseToDelete, setResponseToDelete] = useState<string | null>(null);
+  const [toastMessage, setToastMessage] = useState<string>("");
+  const [toastType, setToastType] = useState<"success" | "error">("success");
+  const [showToast, setShowToast] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newContent, setNewContent] = useState("");
   const [newTags, setNewTags] = useState("");
@@ -50,18 +57,20 @@ function App() {
       (r) =>
         r.title.toLowerCase().includes(query) ||
         r.content.toLowerCase().includes(query) ||
-        (r.tags && Array.isArray(r.tags) 
+        (r.tags && Array.isArray(r.tags)
           ? r.tags.some((tag: string) => tag.toLowerCase().includes(query))
           : typeof r.tags === 'string' && r.tags.toLowerCase().includes(query))
     );
     setFilteredResponses(filtered);
   };
 
-  const handleSaveNew = async () => {
+  const handleSaveNew = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
     if (!newTitle.trim() || !newContent.trim()) {
-      alert("Please enter both title and content");
+      showToastMessage("Please enter both title and content", "error");
       return;
     }
+    setIsLoading(true);
 
     try {
       const newResponse: Response = {
@@ -75,28 +84,55 @@ function App() {
 
       await saveResponse(newResponse);
       await loadResponses();
-
       // Reset form
       setNewTitle("");
       setNewContent("");
       setNewTags("");
       setShowNewForm(false);
+      showToastMessage("Response saved successfully!", "success");
     } catch (error) {
       console.error("Error saving response:", error);
-      alert("Failed to save response");
+      showToastMessage("Failed to save response", "error");
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (confirm("Are you sure you want to delete this response?")) {
-      try {
-        await deleteResponse(id);
-        await loadResponses();
-      } catch (error) {
-        console.error("Error deleting response:", error);
-        alert("Failed to delete response");
-      }
+  const handleDelete = (id: string) => {
+    setResponseToDelete(id);
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!responseToDelete) return;
+
+    try {
+      setDeletingId(responseToDelete);
+      setShowDeleteConfirm(false);
+      await deleteResponse(responseToDelete);
+      await loadResponses();
+      showToastMessage("Response deleted successfully", "success");
+    } catch (error) {
+      console.error("Error deleting response:", error);
+      showToastMessage("Failed to delete response", "error");
+    } finally {
+      setDeletingId(null);
+      setResponseToDelete(null);
     }
+  };
+
+  const cancelDelete = () => {
+    setShowDeleteConfirm(false);
+    setResponseToDelete(null);
+  };
+
+  const showToastMessage = (message: string, type: "success" | "error" = "success") => {
+    setToastMessage(message);
+    setToastType(type);
+    setShowToast(true);
+    setTimeout(() => {
+      setShowToast(false);
+    }, 3000);
   };
 
   const handleInsert = async (response: Response) => {
@@ -117,20 +153,20 @@ function App() {
             if (response?.success) {
               window.close(); // Close popup after successful insertion
             } else {
-              alert("Please click on a LinkedIn message box first");
+              showToastMessage("Please click on a LinkedIn message box first", "error");
             }
           }
         );
       }
     } catch (error) {
       console.error("Error inserting response:", error);
-      alert("Failed to insert response");
+      showToastMessage("Failed to insert response", "error");
     }
   };
 
   const handleCopy = (content: string) => {
     navigator.clipboard.writeText(content);
-    alert("Copied to clipboard!");
+    showToastMessage("Copied to clipboard!", "success");
   };
 
   return (
@@ -154,19 +190,50 @@ function App() {
             className="btn-new"
             onClick={() => setShowNewForm(!showNewForm)}
           >
-            {showNewForm ? "✕ Cancel" : "➕ New"}
+            {showNewForm ? "❌ Cancel" : "➕ New"}
           </button>
         </div>
+
+        {/* Delete Confirmation Modal */}
+        {showDeleteConfirm && (
+          <div className="modal-overlay">
+            <div className="modal-content">
+              <h3>Delete Response</h3>
+              <p>Are you sure you want to delete this response? This action cannot be undone.</p>
+              <div className="modal-actions">
+                <button onClick={cancelDelete} className="btn-cancel">
+                  Cancel
+                </button>
+                <button onClick={confirmDelete} className="btn-delete-confirm">
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Toast Notification */}
+        {showToast && (
+          <div className={`toast ${toastType}`}>
+            <span>{toastMessage}</span>
+            <button onClick={() => setShowToast(false)} className="toast-close">
+              &times;
+            </button>
+          </div>
+        )}
 
         {/* New Response Form */}
         {showNewForm && (
           <div className="new-form">
+            <form onSubmit={handleSaveNew}>
+            <h2 className="form-title">Add New Response</h2>
             <input
               type="text"
               placeholder="Title *"
               value={newTitle}
               onChange={(e) => setNewTitle(e.target.value)}
               className="form-input"
+              disabled={isLoading}
             />
             <textarea
               placeholder="Content *"
@@ -174,6 +241,7 @@ function App() {
               onChange={(e) => setNewContent(e.target.value)}
               className="form-textarea"
               rows={4}
+              disabled={isLoading}
             />
             <input
               type="text"
@@ -181,10 +249,12 @@ function App() {
               value={newTags}
               onChange={(e) => setNewTags(e.target.value)}
               className="form-input"
+              disabled={isLoading}
             />
-            <button onClick={handleSaveNew} className="btn-save">
-              Save Response
+            <button type="submit" className="btn-save" disabled={isLoading}>
+              {isLoading ? "Saving..." : "Save Response"}
             </button>
+            </form>
           </div>
         )}
 
@@ -232,8 +302,9 @@ function App() {
                     onClick={() => response.id && handleDelete(response.id)}
                     className="btn-action btn-delete"
                     title="Delete"
+                    disabled={deletingId === response.id}
                   >
-                    🗑️
+                    {deletingId === response.id ? "Deleting..." : "🗑️"}
                   </button>
                 </div>
               </div>
