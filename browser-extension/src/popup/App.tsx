@@ -7,6 +7,7 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [notification, setNotification] = useState<string>("");
+  const [isDarkMode, setIsDarkMode] = useState(false);
 
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
@@ -14,6 +15,7 @@ const App: React.FC = () => {
 
   useEffect(() => {
     load();
+    loadTheme();
   }, []);
 
   useEffect(() => {
@@ -22,6 +24,17 @@ const App: React.FC = () => {
       return () => clearTimeout(timer);
     }
   }, [notification]);
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', isDarkMode ? 'dark' : 'light');
+    chrome.storage.sync.set({ theme: isDarkMode ? 'dark' : 'light' });
+  }, [isDarkMode]);
+
+  async function loadTheme() {
+    const result = await chrome.storage.sync.get(['theme']);
+    const theme = result.theme || 'light';
+    setIsDarkMode(theme === 'dark');
+  }
 
   async function load() {
     setLoading(true);
@@ -129,12 +142,26 @@ const App: React.FC = () => {
               <p className="brand-subtitle">{responses.length} {responses.length === 1 ? 'response' : 'responses'}</p>
             </div>
           </div>
-          <button className="btn-new" onClick={() => setShowModal(true)} aria-label="Create new response">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M12 5v14M5 12h14"/>
-            </svg>
-            New
-          </button>
+          <div className="header-actions">
+            <button className="theme-toggle" onClick={() => setIsDarkMode(!isDarkMode)} aria-label="Toggle dark mode">
+              {isDarkMode ? (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="5"/>
+                  <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+                </svg>
+              ) : (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                </svg>
+              )}
+            </button>
+            <button className="btn-new" onClick={() => setShowModal(true)} aria-label="Create new response">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M12 5v14M5 12h14"/>
+              </svg>
+              New
+            </button>
+          </div>
         </div>
       </header>
 
