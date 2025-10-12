@@ -8,6 +8,7 @@ const App: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
   const [notification, setNotification] = useState<string>("");
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
 
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
@@ -87,13 +88,28 @@ const App: React.FC = () => {
   async function handleDelete(id?: string) {
     if (!id) return;
     if (!confirm("Delete this response permanently?")) return;
-    try {
-      await deleteResponse(id);
-      await load();
-      setNotification("✓ Response deleted");
-    } catch (e) {
-      setNotification("⚠️ Failed to delete");
-    }
+    
+    setDeletingIds(prev => new Set(prev).add(id));
+    
+    setTimeout(async () => {
+      try {
+        await deleteResponse(id);
+        await load();
+        setDeletingIds(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(id);
+          return newSet;
+        });
+        setNotification("✓ Response deleted");
+      } catch (e) {
+        setDeletingIds(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(id);
+          return newSet;
+        });
+        setNotification("⚠️ Failed to delete");
+      }
+    }, 300); // Match animation duration
   }
 
   async function handleInsert(text: string) {
@@ -189,9 +205,19 @@ const App: React.FC = () => {
         </div>
 
         {loading ? (
-          <div className="loading-state">
-            <div className="spinner"></div>
-            <p>Loading responses...</p>
+          <div className="responses-list">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="skeleton-card">
+                <div className="skeleton-line long"></div>
+                <div className="skeleton-line medium"></div>
+                <div className="skeleton-line short"></div>
+                <div className="skeleton-actions">
+                  <div className="skeleton-btn"></div>
+                  <div className="skeleton-btn"></div>
+                  <div className="skeleton-btn"></div>
+                </div>
+              </div>
+            ))}
           </div>
         ) : filtered.length === 0 ? (
           <div className="empty-state">
@@ -223,7 +249,7 @@ const App: React.FC = () => {
         ) : (
           <div className="responses-list">
             {filtered.map((r) => (
-              <div key={r.id} className="response-card">
+              <div key={r.id} className={`response-card ${deletingIds.has(r.id!) ? 'sliding-out' : ''}`}>
                 <div className="card-header">
                   <h3 className="card-title">{r.title}</h3>
                   {Array.isArray(r.tags) && r.tags.length > 0 && (
