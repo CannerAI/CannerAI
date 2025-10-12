@@ -355,12 +355,39 @@ body {
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   box-shadow: var(--shadow-sm);
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.response-card.sliding-out {
+  animation: slideOut 0.3s ease-in forwards;
+}
+
+@keyframes slideOut {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.95);
+  }
 }
 
 .response-card:hover {
   border-color: var(--border-strong);
   box-shadow: var(--shadow-md);
-  transform: translateY(-1px);
+  transform: translateY(-2px) scale(1.01);
 }
 
 .card-header {
@@ -458,9 +485,17 @@ body {
   transform: translateY(-1px);
 }
 
+.btn-insert:active {
+  transform: scale(0.95);
+}
+
 .btn-copy:hover {
   color: var(--accent);
   border-color: var(--accent);
+}
+
+.btn-copy:active {
+  transform: scale(0.95);
 }
 
 .btn-delete {
@@ -470,6 +505,10 @@ body {
 .btn-delete:hover {
   background: rgba(239, 68, 68, 0.05);
   border-color: var(--danger);
+}
+
+.btn-delete:active {
+  transform: scale(0.95);
 }
 
 /* Footer */
@@ -699,5 +738,55 @@ kbd {
 
 .popup-body::-webkit-scrollbar-thumb:hover {
   background: var(--text-tertiary);
+}
+
+/* Skeleton Loader */
+.skeleton-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.skeleton-card .skeleton-line {
+  height: 12px;
+  background: var(--border);
+  border-radius: 6px;
+  margin-bottom: 8px;
+}
+
+.skeleton-card .skeleton-line.short {
+  width: 60%;
+}
+
+.skeleton-card .skeleton-line.medium {
+  width: 80%;
+}
+
+.skeleton-card .skeleton-line.long {
+  width: 100%;
+}
+
+.skeleton-card .skeleton-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.skeleton-card .skeleton-btn {
+  height: 28px;
+  background: var(--border);
+  border-radius: var(--radius-sm);
+  flex: 1;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
 }
 
