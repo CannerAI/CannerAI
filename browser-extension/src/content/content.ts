@@ -950,11 +950,17 @@ async function saveResponseDirectly(text: string) {
   const autoTitle = text.length > 50 ? text.substring(0, 47) + "..." : text;
   const timestamp = new Date().toISOString();
 
+  // Detect platform and set tags/category accordingly
+  const isLinkedIn = window.location.hostname.includes("linkedin");
+  const isTwitter =
+    window.location.hostname.includes("twitter") ||
+    window.location.hostname.includes("x.com");
+
   const responseData = {
     title: autoTitle,
     content: text,
-    tags: ["linkedin"],
-    category: "linkedin-message",
+    tags: isTwitter ? ["twitter"] : ["linkedin"],
+    category: isTwitter ? "twitter-message" : "linkedin-message",
   };
 
   console.log("Canner: Attempting to save to backend:", CONFIG.API_URL, responseData);
@@ -1014,35 +1020,36 @@ if (document.readyState === "loading") {
   init();
 }
 
-if (window.location.hostname.includes("linkedin.com")) {
-  console.log("Canner: LinkedIn detected - adding SPA handlers");
-  
-  let currentUrl = location.href;
-  setInterval(() => {
-    if (location.href !== currentUrl) {
-      currentUrl = location.href;
-      console.log("Canner: LinkedIn URL changed, re-initializing...");
-      setTimeout(() => {
-        init();
-      }, 2000);
-    }
-  }, 1000);
-  
-  window.addEventListener('popstate', () => {
-    setTimeout(init, 1000);
-  });
-  
-  setInterval(() => {
-    const messageInputs = document.querySelectorAll('.msg-form [contenteditable="true"]');
-    if (messageInputs.length > 0) {
-      messageInputs.forEach(input => {
-        if (!input.id || !injectedElements.has(input.id)) {
-          console.log("Canner: Found new LinkedIn message input, reinitializing...");
-          setTimeout(addMessageHelpers, 500);
-        }
-      });
-    }
-  }, 3000);
+// SPA navigation handling for LinkedIn and Twitter/X
+{
+  const host = window.location.hostname;
+  const isLinkedInHost = host.includes("linkedin");
+  const isTwitterHost = host.includes("twitter") || host.includes("x.com");
+
+  if (isLinkedInHost || isTwitterHost) {
+    console.log("Canner: Social host detected - adding SPA handlers for", host);
+
+    let currentUrl = location.href;
+    setInterval(() => {
+      if (location.href !== currentUrl) {
+        currentUrl = location.href;
+        console.log("Canner: URL changed, re-initializing...");
+        setTimeout(() => {
+          init();
+        }, 1200);
+      }
+    }, 1000);
+
+    window.addEventListener("popstate", () => {
+      setTimeout(init, 1000);
+    });
+
+    // Additional periodic scan for new inputs (covers dynamically loaded DMs/replies)
+    setInterval(() => {
+      addMessageHelpers();
+      addConnectionHelpers();
+    }, 3000);
+  }
 }
 
 // Listen for messages from popup or background script
