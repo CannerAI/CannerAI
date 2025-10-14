@@ -232,6 +232,7 @@ body {
   transform: translateY(-50%);
   color: var(--text-tertiary);
   pointer-events: none;
+  z-index: 1;
 }
 
 .search-input {
@@ -679,6 +680,18 @@ kbd {
   border-top: 1px solid var(--border);
 }
 
+/* Button Styles */
+
+/* disabled state for all buttons */
+.btn-primary:disabled,
+.btn-secondary:disabled,
+.btn-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+  transform: none;
+  box-shadow: none;
+}
+
 .btn-primary,
 .btn-secondary {
   flex: 1;
@@ -718,7 +731,7 @@ kbd {
 }
 
 .btn-secondary:hover {
-  background: white;
+  background: var(--bg-secondary);
   border-color: var(--text-tertiary);
 }
 
@@ -788,5 +801,15 @@ kbd {
   50% {
     opacity: 0.5;
   }
+}
+
+/* Inline button spinner */
+.spinner-icon {
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 8px;
+  width: 16px;
+  height: 16px;
+  animation: spin 0.9s linear infinite;
 }
 
