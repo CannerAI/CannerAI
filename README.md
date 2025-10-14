@@ -10,6 +10,7 @@
 ## ✨ Features
 - Select from a variety of pre-defined response templates
 - Format linked post with Ease
+- API Monitoring Dashboard (Flask backend + React/TypeScript frontend)
 
 ## 📄 **Contributing**
 
@@ -20,6 +21,49 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 ## 🚀 Quick Start
 A detailed Quick Start is written in our [Contributing Guide](CONTRIBUTING.md). You can go through it for more details. 
 
+### API Monitoring Dashboard
+
+This project now includes a complete API Monitoring Dashboard with:
+
+1. **Flask Backend** (`server/`)
+   - Tracks every request's endpoint name, HTTP method, response status code, and response time
+   - Provides endpoints for metrics, recent logs, and health checks
+   - Stores metrics in memory (no external database required)
+
+2. **React/TypeScript Frontend** (`client/dashboard/`)
+   - Modern dashboard with real-time updates (auto-refresh every 30 seconds)
+   - Summary cards with total requests, average latency, and error rate
+   - Table of endpoints with metrics
+   - Interactive charts visualizing request trends and latency
+   - Responsive design with ShadCN UI components
+
+### Running the Dashboard
+
+**Backend (Flask):**
+```bash
+# Navigate to the server directory
+cd server
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Run the server
+python app.py
+# Server will start on http://localhost:5000
+```
+
+**Frontend (React/TypeScript):**
+```bash
+# Navigate to the client/dashboard directory
+cd client/dashboard
+
+# Install dependencies
+npm install
+
+# Start the development server
+npm run dev
+# Dashboard will be available at http://localhost:8080
+```
 
 ## **License**
 
