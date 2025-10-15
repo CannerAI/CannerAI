@@ -1,0 +1,20 @@
+# Terraform specific files/folders
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Ignore everything except desired files
+# First ignore all
+*
+# Then allow only the files you want to push
+!main.tf
+!outputs.tf
+!terraform.tfvars
+!variables.tf
+!.gitignore
