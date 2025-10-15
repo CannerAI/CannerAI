@@ -18,3 +18,4 @@ override.tf.json
 !terraform.tfvars
 !variables.tf
 !.gitignore
+!README.md
