@@ -138,9 +138,9 @@ const App: React.FC = () => {
   async function handleDelete(id?: string) {
     if (!id) return;
     if (!confirm("Delete this response permanently?")) return;
-    
+
     setDeletingIds(prev => new Set(prev).add(id));
-    
+
     setTimeout(async () => {
       try {
         await deleteResponse(id);
@@ -402,7 +402,7 @@ const App: React.FC = () => {
               </div>
             </div>
             <div className="modal-footer">
-              <button className="btn-secondary" onClick={() => setShowModal(false)}>
+              <button className="btn-secondary" disabled={isSaving} onClick={() => setShowModal(false)}>
                 Cancel
               </button>
               <button className="btn-primary" onClick={handleSave} disabled={saving}>
