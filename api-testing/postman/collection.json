@@ -1,0 +1,292 @@
+{
+	"info": {
+		"_postman_id": "canner-api-collection",
+		"name": "Canner API",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"description": "Postman collection for testing the Canner backend API endpoints"
+	},
+	"item": [
+		{
+			"name": "Get All Responses",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/api/responses",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"responses"
+					]
+				},
+				"description": "Get all responses, optionally filtered by search query"
+			},
+			"response": []
+		},
+		{
+			"name": "Get All Responses with Search",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/api/responses?search=test",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"responses"
+					],
+					"query": [
+						{
+							"key": "search",
+							"value": "test"
+						}
+					]
+				},
+				"description": "Get all responses filtered by search query"
+			},
+			"response": []
+		},
+		{
+			"name": "Get Response by ID",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"pm.test(\"Response has correct ID\", function () {",
+							"    const responseJson = pm.response.json();",
+							"    pm.expect(responseJson.id).to.eql(pm.environment.get(\"response_id\"));",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/api/responses/{{response_id}}",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"responses",
+						"{{response_id}}"
+					]
+				},
+				"description": "Get a single response by ID"
+			},
+			"response": []
+		},
+		{
+			"name": "Create Response and Set ID",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 201\", function () {",
+							"    pm.response.to.have.status(201);",
+							"});",
+							"",
+							"pm.test(\"Response has ID\", function () {",
+							"    const responseJson = pm.response.json();",
+							"    pm.expect(responseJson.id).to.exist;",
+							"    pm.environment.set(\"response_id\", responseJson.id);",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"title\": \"Sample Response\",\n  \"content\": \"This is a sample response content.\",\n  \"tags\": [\"sample\", \"test\"]\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/api/responses",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"responses"
+					]
+				},
+				"description": "Create a new response and automatically set its ID to the response_id variable"
+			},
+			"response": []
+		},
+		{
+			"name": "Update Response",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"pm.test(\"Response has been updated\", function () {",
+							"    const responseJson = pm.response.json();",
+							"    pm.expect(responseJson.title).to.eql(\"Updated Response\");",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "PUT",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"title\": \"Updated Response\",\n  \"content\": \"This is updated response content.\",\n  \"tags\": [\"updated\", \"test\"]\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/api/responses/{{response_id}}",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"responses",
+						"{{response_id}}"
+					]
+				},
+				"description": "Update an existing response"
+			},
+			"response": []
+		},
+		{
+			"name": "Delete Response",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 204\", function () {",
+							"    pm.response.to.have.status(204);",
+							"});",
+							"",
+							"pm.test(\"Response has been deleted\", function () {",
+							"    pm.environment.unset(\"response_id\");",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "DELETE",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/api/responses/{{response_id}}",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"responses",
+						"{{response_id}}"
+					]
+				},
+				"description": "Delete a response"
+			},
+			"response": []
+		},
+		{
+			"name": "Health Check",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"pm.test(\"Health check successful\", function () {",
+							"    const responseJson = pm.response.json();",
+							"    pm.expect(responseJson.status).to.eql(\"healthy\");",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/api/health",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"health"
+					]
+				},
+				"description": "Health check endpoint with database connectivity test"
+			},
+			"response": []
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:5000",
+			"type": "string"
+		},
+		{
+			"key": "response_id",
+			"value": "",
+			"type": "string"
+		}
+	]
+}

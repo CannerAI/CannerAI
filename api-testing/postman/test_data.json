@@ -1,0 +1,44 @@
+[
+  {
+    "id": 1,
+    "title": "Welcome Message",
+    "content": "Welcome to our API service. This is a sample response to help you get started.",
+    "tags": "[\"welcome\", \"getting-started\", \"introduction\"]"
+  },
+  {
+    "id": 2,
+    "title": "Error Handling",
+    "content": "This response demonstrates how error messages are structured in our API.",
+    "tags": "[\"error\", \"exception\", \"troubleshooting\"]"
+  },
+  {
+    "id": 3,
+    "title": "API Documentation",
+    "content": "Complete API documentation is available at /docs. Please refer to it for detailed information about each endpoint.",
+    "tags": "[\"documentation\", \"api\", \"reference\"]"
+  },
+  {
+    "id": 4,
+    "title": "User Profile Response",
+    "content": "User profile information including name, email, and account status.",
+    "tags": "[\"user\", \"profile\", \"account\"]"
+  },
+  {
+    "id": 5,
+    "title": "Product Information",
+    "content": "Detailed product specifications, pricing, and availability information.",
+    "tags": "[\"product\", \"catalog\", \"inventory\"]"
+  },
+  {
+    "id": 6,
+    "title": "Updated Welcome Message",
+    "content": "Welcome to our enhanced API service. This response has been updated with additional information.",
+    "tags": "[\"welcome\", \"updated\", \"enhanced\"]"
+  },
+  {
+    "id": 7,
+    "title": "Revised Error Handling",
+    "content": "This response now includes additional troubleshooting steps and contact information for support.",
+    "tags": "[\"error\", \"revised\", \"support\"]"
+  }
+]
