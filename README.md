@@ -65,6 +65,35 @@ npm run dev
 # Dashboard will be available at http://localhost:8080
 ```
 
+### Monitoring with Prometheus and Grafana (Docker Compose)
+
+This repository includes a ready-to-run monitoring stack for the Flask backend with Prometheus and Grafana.
+
+```bash
+# Build and start all services
+docker-compose up -d --build
+
+# Services
+# - Backend (Flask):      http://localhost:5000
+# - Prometheus UI:        http://localhost:9090
+# - Grafana UI:           http://localhost:3000  (admin/admin)
+```
+
+- Prometheus is configured to scrape the backend at `backend:5000/metrics` via `monitoring/prometheus/prometheus.yml`.
+- Grafana auto-provisions a Prometheus data source and a starter dashboard.
+  - Data source config: `monitoring/grafana/provisioning/datasources/datasource.yml`
+  - Dashboards provider: `monitoring/grafana/provisioning/dashboards/dashboards.yml`
+  - Starter dashboard JSON: `monitoring/grafana/dashboards/api-dashboard.json`
+
+Access Grafana at `http://localhost:3000` and log in with `admin/admin` (change after first login). The "API Metrics Overview" dashboard will appear automatically and includes:
+
+- Request rate
+- Error rate
+- Latency percentiles (p50/p90/p99)
+- Requests by status code and endpoint
+
+To view raw metrics in Prometheus, open `http://localhost:9090` and query metrics like `flask_http_request_total` or `flask_http_request_duration_seconds_bucket`.
+
 ## **License**
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
