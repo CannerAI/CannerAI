@@ -425,39 +425,63 @@ body[class*="linkedin"] .social-helper-pen:hover .pen-icon,
 /* ===== TEXT SELECTION SAVE BUTTON ===== */
 .linkedin-helper-save-btn {
   animation: fadeInUp 0.2s ease-out;
+  pointer-events: all !important;
+  display: block !important;
+  visibility: visible !important;
+  z-index: 999999 !important;
 }
 
 .lh-save-selection-btn {
   background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-  color: white;
-  border: none;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 24px;
-  font-weight: 700;
-  cursor: pointer;
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
-  transition: all 0.2s ease;
+  color: white !important;
+  border: none !important;
+  width: 36px !important;
+  height: 36px !important;
+  border-radius: 50% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 24px !important;
+  font-weight: 700 !important;
+  cursor: pointer !important;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4) !important;
+  transition: all 0.2s ease !important;
+  pointer-events: all !important;
+  z-index: 999999 !important;
+  position: relative !important;
+  outline: none !important;
 }
 
 .lh-plus-icon {
-  line-height: 1;
-  font-size: 28px;
-  font-weight: 300;
+  line-height: 1 !important;
+  font-size: 28px !important;
+  font-weight: 300 !important;
+  color: white !important;
+  pointer-events: none !important;
+  user-select: none !important;
 }
 
 .lh-save-selection-btn:hover {
-  transform: scale(1.1);
-  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.5);
-  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  transform: scale(1.1) !important;
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.5) !important;
+  background: linear-gradient(135deg, #059669 0%, #047857 100%) !important;
 }
 
 .lh-save-selection-btn:active {
-  transform: scale(0.95);
+  transform: scale(0.95) !important;
+}
+
+body[class*="linkedin"] .linkedin-helper-save-btn,
+[data-li-test-id] .linkedin-helper-save-btn {
+  z-index: 999999 !important;
+  pointer-events: all !important;
+}
+
+body[class*="linkedin"] .lh-save-selection-btn,
+[data-li-test-id] .lh-save-selection-btn {
+  z-index: 999999 !important;
+  pointer-events: all !important;
+  position: relative !important;
 }
 
 /* ===== MODAL DIALOG ===== */
