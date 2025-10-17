@@ -13,6 +13,7 @@ const App: React.FC = () => {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [tags, setTags] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     load();
@@ -64,6 +65,7 @@ const App: React.FC = () => {
       setNotification("⚠️ Title and content are required");
       return;
     }
+    setIsSaving(true);
 
     const newResp: Partial<Response> = {
       title: title.trim(),
@@ -82,15 +84,17 @@ const App: React.FC = () => {
     } catch (e) {
       console.error(e);
       setNotification("⚠️ Failed to save response");
+    } finally {
+      setIsSaving(false);
     }
   }
 
   async function handleDelete(id?: string) {
     if (!id) return;
     if (!confirm("Delete this response permanently?")) return;
-    
+
     setDeletingIds(prev => new Set(prev).add(id));
-    
+
     setTimeout(async () => {
       try {
         await deleteResponse(id);
@@ -346,16 +350,32 @@ const App: React.FC = () => {
               </div>
             </div>
             <div className="modal-footer">
-              <button className="btn-secondary" onClick={() => setShowModal(false)}>
+              <button className="btn-secondary" disabled={isSaving} onClick={() => setShowModal(false)}>
                 Cancel
               </button>
-              <button className="btn-primary" onClick={handleSave}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
-                  <polyline points="17 21 17 13 7 13 7 21"/>
-                  <polyline points="7 3 7 8 15 8"/>
-                </svg>
-                Save Response
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={handleSave}
+                disabled={isSaving}
+                aria-busy={isSaving}
+                aria-live="polite"
+              >
+                {isSaving
+                  ? <>
+                    <svg className="spinner-icon" width="16" height="16" viewBox="0 0 50 50" fill="none" aria-hidden="true">
+                      <circle cx="25" cy="25" r="20" stroke="currentColor" strokeWidth="5" opacity="0.2"/>
+                      <path d="M25 5a20 20 0 0 1 20 20" stroke="currentColor" strokeWidth="5" strokeLinecap="round"/>
+                    </svg>
+                    Saving... </>
+                  : <>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                      <polyline points="17 21 17 13 7 13 7 21"/>
+                      <polyline points="7 3 7 8 15 8"/>
+                    </svg>
+                    Save Response </>
+                }
               </button>
             </div>
           </div>
