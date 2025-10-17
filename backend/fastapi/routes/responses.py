@@ -32,7 +32,6 @@ async def get_responses(
     response_service: ResponseService = Depends(get_response_service)
 ):
     """Get all responses with optional search"""
-    logger.info(f"🌐 API: GET /responses (search='{search}', limit={limit})")
     try:
         responses = response_service.get_responses(search=search, limit=limit)
         response_data = [ResponseResponse.from_orm(response) for response in responses]
@@ -71,7 +70,6 @@ async def create_response(
     response_service: ResponseService = Depends(get_response_service)
 ):
     """Create a new response"""
-    logger.info(f"🌐 API: POST /responses - Creating: '{response_data.title}'")
     try:
         response = response_service.create_response(response_data)
         result = ResponseResponse.from_orm(response)
