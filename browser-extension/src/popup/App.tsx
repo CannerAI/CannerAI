@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { getResponses, saveResponse, deleteResponse, updateResponse, Response } from "../utils/api";
+import React, { useEffect, useState } from "react";
+import { deleteResponse, getResponses, Response, saveResponse, updateResponse } from "../utils/api";
 
 const App: React.FC = () => {
   const [responses, setResponses] = useState<Response[]>([]);
@@ -181,11 +181,13 @@ const App: React.FC = () => {
     }
   }
 
-  function handleCopy(text: string) {
-    navigator.clipboard.writeText(text).then(() => {
-      setNotification("✓ Copied to clipboard");
-    });
-  }
+  // Removed copy functionality
+  // async function handleCopy(text: string) {
+  //   navigator.clipboard.writeText(text).then(() => {
+  //     setNotification("✓ Copied to clipboard");
+  //   });
+  // }
+
 
   return (
     <div className="popup-container">
@@ -315,16 +317,9 @@ const App: React.FC = () => {
                 <div className="card-actions">
                   <button className="btn-action btn-insert" onClick={() => handleInsert(r.content)} aria-label="Insert response">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>
+                      <path d="M12 5v14M5 12h14"/>
                     </svg>
                     Insert
-                  </button>
-                  <button className="btn-action btn-copy" onClick={() => handleCopy(r.content)} aria-label="Copy response">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-                    </svg>
-                    Copy
                   </button>
                   <button className="btn-action" onClick={() => openEditModal(r)} aria-label="Edit response">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -402,7 +397,7 @@ const App: React.FC = () => {
               </div>
             </div>
             <div className="modal-footer">
-              <button className="btn-secondary" disabled={isSaving} onClick={() => setShowModal(false)}>
+              <button className="btn-secondary" disabled={saving} onClick={() => setShowModal(false)}>
                 Cancel
               </button>
               <button className="btn-primary" onClick={handleSave} disabled={saving}>
