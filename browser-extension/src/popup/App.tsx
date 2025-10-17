@@ -22,6 +22,7 @@ const App: React.FC = () => {
   useEffect(() => {
     load();
     loadTheme();
+    loadSortPreference();
   }, []);
 
   useEffect(() => {
@@ -35,6 +36,10 @@ const App: React.FC = () => {
     document.documentElement.setAttribute('data-theme', isDarkMode ? 'dark' : 'light');
     chrome.storage.sync.set({ theme: isDarkMode ? 'dark' : 'light' });
   }, [isDarkMode]);
+
+  useEffect(() => {
+    chrome.storage.sync.set({ sortBy });
+  }, [sortBy]);
 
   async function loadTheme() {
     const result = await chrome.storage.sync.get(['theme']);
@@ -54,6 +59,14 @@ const App: React.FC = () => {
     }
   }
 
+  async function loadSortPreference() {
+    const result = await chrome.storage.sync.get(['sortBy']);
+    const savedSortBy = result.sortBy;
+    if (savedSortBy && ['date-desc', 'date-asc', 'alphabetical', 'most-used', 'custom'].includes(savedSortBy)) {
+      setSortBy(savedSortBy as SortOption);
+    }
+  }
+
   const filtered = responses.filter((r) => {
     if (!query.trim()) return true;
     const q = query.toLowerCase();
@@ -64,7 +77,6 @@ const App: React.FC = () => {
     );
   });
 
-  // Sort the filtered responses
   const sortedResponses = [...filtered].sort((a, b) => {
     switch (sortBy) {
       case "date-desc":
@@ -145,10 +157,6 @@ const App: React.FC = () => {
         chrome.tabs.sendMessage(tab.id, { action: "insertResponse", content: text }, (res) => {
           if (res?.success) {
             setNotification("✓ Inserted successfully");
-            // Track usage if we have a response ID
-            if (responseId) {
-              trackUsage(responseId);
-            }
             setTimeout(() => window.close(), 500);
           } else {
             setNotification("⚠️ No input field detected");
@@ -161,7 +169,6 @@ const App: React.FC = () => {
     }
   }
 
-  // Drag and drop handlers for custom ordering
   const handleDragStart = (e: React.DragEvent, index: number) => {
     if (sortBy !== "custom") return;
     setDraggedIndex(index);
@@ -182,21 +189,16 @@ const App: React.FC = () => {
     const newResponses = [...sortedResponses];
     const draggedItem = newResponses[draggedIndex];
     
-    // Remove dragged item
     newResponses.splice(draggedIndex, 1);
-    // Insert at new position
     newResponses.splice(dropIndex, 0, draggedItem);
     
-    // Update custom_order for all items
     const updatedResponses = newResponses.map((response, index) => ({
       ...response,
       custom_order: index
     }));
     
-    // Update the responses in state
     setResponses(updatedResponses);
     
-    // Save custom order to backend/local storage
     try {
       for (const response of updatedResponses) {
         if (response.id) {

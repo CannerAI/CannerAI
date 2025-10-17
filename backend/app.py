@@ -418,7 +418,6 @@ def track_usage(response_id: str):
     """Track usage of a response by incrementing its usage count."""
     conn = get_db_connection()
     
-    # Check if response exists and increment usage count
     if is_postgres():
         query = '''
             UPDATE responses 
@@ -430,7 +429,6 @@ def track_usage(response_id: str):
         rows = execute_query(conn, query, params)
         response_data = dict_from_row(rows[0]) if rows else None
     else:
-        # SQLite doesn't support RETURNING, so we need to update and then fetch
         query = '''
             UPDATE responses 
             SET usage_count = usage_count + 1, updated_at = CURRENT_TIMESTAMP 
@@ -438,7 +436,6 @@ def track_usage(response_id: str):
         '''
         execute_query(conn, query, (response_id,))
         
-        # Fetch updated record
         rows = execute_query(conn, 'SELECT * FROM responses WHERE id = ?', (response_id,))
         response_data = dict_from_row(rows[0]) if rows else None
     
