@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { getResponses, saveResponse, deleteResponse, Response } from "../utils/api";
+import { getResponses, saveResponse, deleteResponse, trackUsage, Response } from "../utils/api";
+
+type SortOption = "date-desc" | "date-asc" | "alphabetical" | "most-used" | "custom";
 
 const App: React.FC = () => {
   const [responses, setResponses] = useState<Response[]>([]);
@@ -9,11 +11,13 @@ const App: React.FC = () => {
   const [notification, setNotification] = useState<string>("");
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
+  const [sortBy, setSortBy] = useState<SortOption>("date-desc");
 
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [tags, setTags] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
   useEffect(() => {
     load();
@@ -58,6 +62,24 @@ const App: React.FC = () => {
       r.content.toLowerCase().includes(q) ||
       (Array.isArray(r.tags) ? r.tags.join(" ").toLowerCase() : String(r.tags || "")).includes(q)
     );
+  });
+
+  // Sort the filtered responses
+  const sortedResponses = [...filtered].sort((a, b) => {
+    switch (sortBy) {
+      case "date-desc":
+        return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+      case "date-asc":
+        return new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime();
+      case "alphabetical":
+        return a.title.localeCompare(b.title);
+      case "most-used":
+        return (b.usage_count || 0) - (a.usage_count || 0);
+      case "custom":
+        return (a.custom_order || 0) - (b.custom_order || 0);
+      default:
+        return 0;
+    }
   });
 
   async function handleSave() {
@@ -116,13 +138,17 @@ const App: React.FC = () => {
     }, 300); // Match animation duration
   }
 
-  async function handleInsert(text: string) {
+  async function handleInsert(text: string, responseId?: string) {
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       if (tab?.id) {
         chrome.tabs.sendMessage(tab.id, { action: "insertResponse", content: text }, (res) => {
           if (res?.success) {
             setNotification("✓ Inserted successfully");
+            // Track usage if we have a response ID
+            if (responseId) {
+              trackUsage(responseId);
+            }
             setTimeout(() => window.close(), 500);
           } else {
             setNotification("⚠️ No input field detected");
@@ -134,6 +160,61 @@ const App: React.FC = () => {
       setNotification("⚠️ Failed to insert");
     }
   }
+
+  // Drag and drop handlers for custom ordering
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    if (sortBy !== "custom") return;
+    setDraggedIndex(index);
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    if (sortBy !== "custom") return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+  };
+
+  const handleDrop = async (e: React.DragEvent, dropIndex: number) => {
+    if (sortBy !== "custom" || draggedIndex === null || draggedIndex === dropIndex) return;
+    
+    e.preventDefault();
+    
+    const newResponses = [...sortedResponses];
+    const draggedItem = newResponses[draggedIndex];
+    
+    // Remove dragged item
+    newResponses.splice(draggedIndex, 1);
+    // Insert at new position
+    newResponses.splice(dropIndex, 0, draggedItem);
+    
+    // Update custom_order for all items
+    const updatedResponses = newResponses.map((response, index) => ({
+      ...response,
+      custom_order: index
+    }));
+    
+    // Update the responses in state
+    setResponses(updatedResponses);
+    
+    // Save custom order to backend/local storage
+    try {
+      for (const response of updatedResponses) {
+        if (response.id) {
+          await saveResponse({ ...response, custom_order: response.custom_order });
+        }
+      }
+      setNotification("✓ Custom order saved");
+    } catch (error) {
+      console.error("Failed to save custom order:", error);
+      setNotification("⚠️ Failed to save custom order");
+    }
+    
+    setDraggedIndex(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null);
+  };
 
   function handleCopy(text: string) {
     navigator.clipboard.writeText(text).then(() => {
@@ -163,6 +244,20 @@ const App: React.FC = () => {
             </div>
           </div>
           <div className="header-actions">
+            <div className="sort-container">
+              <select
+                className="sort-select"
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as SortOption)}
+                aria-label="Sort responses"
+              >
+                <option value="date-desc">Newest First</option>
+                <option value="date-asc">Oldest First</option>
+                <option value="alphabetical">Alphabetical</option>
+                <option value="most-used">Most Used</option>
+                <option value="custom">Custom Order</option>
+              </select>
+            </div>
             <button className="theme-toggle" onClick={() => setIsDarkMode(!isDarkMode)} aria-label="Toggle dark mode">
               {isDarkMode ? (
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -223,7 +318,7 @@ const App: React.FC = () => {
               </div>
             ))}
           </div>
-        ) : filtered.length === 0 ? (
+        ) : sortedResponses.length === 0 ? (
           <div className="empty-state">
             {query ? (
               <>
@@ -252,8 +347,16 @@ const App: React.FC = () => {
           </div>
         ) : (
           <div className="responses-list">
-            {filtered.map((r) => (
-              <div key={r.id} className={`response-card ${deletingIds.has(r.id!) ? 'sliding-out' : ''}`}>
+            {sortedResponses.map((r, index) => (
+              <div 
+                key={r.id} 
+                className={`response-card ${deletingIds.has(r.id!) ? 'sliding-out' : ''} ${sortBy === 'custom' ? 'draggable' : ''}`}
+                draggable={sortBy === 'custom'}
+                onDragStart={(e) => handleDragStart(e, index)}
+                onDragOver={handleDragOver}
+                onDrop={(e) => handleDrop(e, index)}
+                onDragEnd={handleDragEnd}
+              >
                 <div className="card-header">
                   <h3 className="card-title">{r.title}</h3>
                   {Array.isArray(r.tags) && r.tags.length > 0 && (
@@ -267,7 +370,7 @@ const App: React.FC = () => {
                 </div>
                 <p className="card-content">{r.content}</p>
                 <div className="card-actions">
-                  <button className="btn-action btn-insert" onClick={() => handleInsert(r.content)} aria-label="Insert response">
+                  <button className="btn-action btn-insert" onClick={() => handleInsert(r.content, r.id)} aria-label="Insert response">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>
                     </svg>
