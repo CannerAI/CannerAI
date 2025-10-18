@@ -8,499 +8,427 @@ const CONFIG = {
 };
 
 const injectedElements = new Set<string>();
-const suggestionManagers: Record<string, SuggestionManager> = {} as any;
+const suggestionManagers: Record<string, InlineSuggestionManager> = {} as any;
 
-// Minimal Suggestion Manager: local-only (chrome.storage.local) prefix matching
-class SuggestionManager {
-  el: HTMLElement;
-  activeSuggestion: any | null = null;
-  ghostEl: HTMLElement | null = null;
-  composing = false;
-  // timestamp (ms) until which inputs are ignored to avoid re-trigger after programmatic insert
-  suppressUntil: number = 0;
-  keydownHandler: (e: KeyboardEvent) => void;
-  inputHandler: (e: Event) => void;
+// Simple Inline Suggestion Manager
+class InlineSuggestionManager {
+  element: HTMLElement;
+  ghostElement: HTMLElement | null = null;
+  currentSuggestion: any | null = null;
+  isComposing: boolean = false;
+  suppressedUntil: number = 0;
 
-  constructor(el: HTMLElement) {
-    this.el = el;
+  // Event handlers
+  private inputHandler: (e: Event) => void;
+  private keydownHandler: (e: KeyboardEvent) => void;
+  private blurHandler: () => void;
+  private compositionStartHandler: () => void;
+  private compositionEndHandler: () => void;
 
-    this.keydownHandler = this.onKeydown.bind(this);
-    this.inputHandler = this.onInput.bind(this);
+  constructor(element: HTMLElement) {
+    this.element = element;
 
-    el.addEventListener("keydown", this.keydownHandler);
-    el.addEventListener("input", this.inputHandler);
-    el.addEventListener("compositionstart", () => (this.composing = true));
-    el.addEventListener("compositionend", () => (this.composing = false));
-    el.addEventListener("blur", () => this.clearSuggestion());
+    // Bind event handlers
+    this.inputHandler = this.handleInput.bind(this);
+    this.keydownHandler = this.handleKeydown.bind(this);
+    this.blurHandler = this.clearSuggestion.bind(this);
+    this.compositionStartHandler = () => { this.isComposing = true; };
+    this.compositionEndHandler = () => { this.isComposing = false; };
+
+    // Attach event listeners
+    this.element.addEventListener('input', this.inputHandler);
+    this.element.addEventListener('keydown', this.keydownHandler);
+    this.element.addEventListener('blur', this.blurHandler);
+    this.element.addEventListener('compositionstart', this.compositionStartHandler);
+    this.element.addEventListener('compositionend', this.compositionEndHandler);
   }
 
   destroy() {
     this.clearSuggestion();
-    this.el.removeEventListener("keydown", this.keydownHandler);
-    this.el.removeEventListener("input", this.inputHandler);
+    this.element.removeEventListener('input', this.inputHandler);
+    this.element.removeEventListener('keydown', this.keydownHandler);
+    this.element.removeEventListener('blur', this.blurHandler);
+    this.element.removeEventListener('compositionstart', this.compositionStartHandler);
+    this.element.removeEventListener('compositionend', this.compositionEndHandler);
   }
 
-  async onInput(_e: Event) {
-    // Ignore inputs while suppressed (e.g., immediately after programmatic insertion)
-    if (Date.now() < this.suppressUntil) {
-      // ensure any visible ghost is removed while suppressed
-      this.clearSuggestion();
-      return;
-    }
-    if (this.composing) return;
-    const prefix = this.getPrefix();
-    if (!prefix || prefix.length < 2) {
+  private async handleInput(e: Event) {
+    // Skip if suppressed
+    if (Date.now() < this.suppressedUntil) {
       this.clearSuggestion();
       return;
     }
 
-    const suggestions = await fetchLocalSuggestions(prefix);
-    if (suggestions.length === 0) {
+    // Skip if composing (IME input)
+    if (this.isComposing) {
+      return;
+    }
+
+    const currentText = this.getCurrentText();
+
+    // Clear suggestion if text is too short or empty (fixes Twitter backspace issue)
+    if (!currentText || currentText.length < 2) {
       this.clearSuggestion();
       return;
     }
 
-    // For inline ghost suggestions we prefer responses that start with the prefix.
-    // This avoids showing the entire saved response when the prefix appears in the
-    // middle or end (which can be confusing after accepting and then backspacing).
-    const q = prefix.toLowerCase();
-    const inlineCandidates = suggestions.filter((s: any) => {
-      const txt = (s.content || s.title || "").toLowerCase();
-      return txt.startsWith(q);
-    });
-
-    if (inlineCandidates.length === 0) {
-      // No good startsWith candidate: don't show the inline ghost to avoid confusing behavior
-      this.clearSuggestion();
-      return;
-    }
-
-    const best = inlineCandidates[0];
-    this.showSuggestion(best, prefix);
-  }
-
-  onKeydown(e: KeyboardEvent) {
-    if (e.key === "Tab" && this.activeSuggestion && !this.composing) {
-      e.preventDefault();
-      this.acceptSuggestion();
-      return;
-    }
-
-    if (e.key === "Escape" && this.activeSuggestion) {
-      e.preventDefault();
-      this.clearSuggestion();
-      return;
-    }
-  }
-
-  getPrefix(): string | null {
-    try {
-      if (this.el.getAttribute("contenteditable") === "true") {
-        const sel = window.getSelection();
-        if (!sel || sel.rangeCount === 0) return null;
-        const range = sel.getRangeAt(0);
-
-        // Clone a range covering content up to the caret and extract a DocumentFragment
-        try {
-          const preRange = range.cloneRange();
-          preRange.selectNodeContents(this.el);
-          preRange.setEnd(range.endContainer, range.endOffset);
-          const frag = preRange.cloneContents();
-          // Remove any ghost nodes from the fragment so ghost text isn't included
-          try {
-            (frag as DocumentFragment)
-              .querySelectorAll?.('[data-sh-ghost]')
-              .forEach((n) => n.remove());
-          } catch (e) {}
-          const text = frag.textContent || '';
-          const m = text.match(/(\S+)$/);
-          return m ? m[0] : null;
-        } catch (e) {
-          return null;
-        }
-      } else if (
-        this.el.tagName === "TEXTAREA" ||
-        (this.el.tagName === "INPUT" && (this.el as HTMLInputElement).type === "text")
-      ) {
-        const input = this.el as HTMLInputElement | HTMLTextAreaElement;
-        const idx = (input as any).selectionStart || 0;
-        const text = input.value.slice(0, idx);
-        const m = text.match(/(\S+)$/);
-        return m ? m[0] : null;
+    // Additional check for empty contenteditable elements
+    if (this.element.getAttribute('contenteditable') === 'true') {
+      const textContent = this.element.textContent?.trim() || '';
+      if (textContent.length === 0) {
+        this.clearSuggestion();
+        return;
       }
-    } catch (err) {
-      return null;
     }
-    return null;
-  }
 
-  showSuggestion(suggestion: any, prefix: string) {
-    // Don't show suggestions while suppressed (prevents immediate re-show after accept)
-    if (Date.now() < this.suppressUntil) return;
-    this.activeSuggestion = suggestion;
-    const remainder = suggestion.content || suggestion.title || "";
-
-    // Determine display text: show remainder (suggestion minus prefix) if possible
-    let display = remainder;
     try {
-      const lower = remainder.toLowerCase();
-      const pLower = prefix.toLowerCase();
-      if (lower.startsWith(pLower)) {
-        display = remainder.substring(prefix.length);
-      }
-    } catch (e) {}
-
-    this.renderGhost(display);
-  }
-
-  renderGhost(text: string) {
-    this.clearGhost();
-    if (this.el.getAttribute("contenteditable") === "true") {
-      // On Twitter/X we avoid inserting non-editable nodes into the composer
-      // because their editor reacts badly to contenteditable=false spans
-      // (they may convert them into real text or move the caret). Instead
-      // render a positioned overlay showing the completion text near the
-      // caret. This keeps the editable DOM untouched and avoids autofill.
-      const isTwitter = window.location.hostname.includes("twitter") || window.location.hostname.includes("x.com");
-
-      if (isTwitter) {
-        // Create an overlay element positioned at the caret location
-        const overlay = document.createElement("div");
-        overlay.className = "sh-inline-overlay sh-inline-suggestion";
-        overlay.dataset.shGhost = "1";
-        overlay.style.pointerEvents = "none";
-        overlay.style.position = "fixed";
-        overlay.style.zIndex = "10006";
-        overlay.textContent = text;
-
-        // Append invisibly to measure size
-        overlay.style.visibility = 'hidden';
-        overlay.style.left = '0px';
-        overlay.style.top = '0px';
-        document.body.appendChild(overlay);
-
-        // Try to compute caret rect and position overlay to the right of the caret
-        const sel = window.getSelection();
-        let left = 0;
-        let top = 0;
-        if (sel && sel.rangeCount > 0) {
-          const range = sel.getRangeAt(0).cloneRange();
-          range.collapse(false);
-          // Prefer the last client rect (handles multi-line)
-          const rects = range.getClientRects();
-          let rect: DOMRect | null = null;
-          if (rects && rects.length > 0) rect = rects[rects.length - 1] as DOMRect;
-          else rect = range.getBoundingClientRect();
-
-          if (rect && rect.width !== 0) {
-            left = rect.right + 4; // small gap after caret
-            // vertically center overlay relative to caret rect
-            top = rect.top + (rect.height - overlay.offsetHeight) / 2;
-          }
-        }
-
-        // Fallback to element bounding rect (place near top-right)
-        if (!left && !top) {
-          const rectEl = this.el.getBoundingClientRect();
-          left = rectEl.right - 8;
-          top = rectEl.top + 8;
-        }
-
-        // Apply final position and reveal
-        overlay.style.left = `${Math.round(left)}px`;
-        overlay.style.top = `${Math.round(top)}px`;
-        overlay.style.visibility = 'visible';
-        this.ghostEl = overlay;
+      const suggestions = await this.fetchSuggestions(currentText);
+      if (suggestions.length === 0) {
+        this.clearSuggestion();
         return;
       }
 
-      // Default behavior for non-Twitter contenteditables: insert a non-editable span at caret
-      const span = document.createElement("span");
-      span.className = "sh-inline-suggestion";
-      span.setAttribute("contenteditable", "false");
-      span.dataset.shGhost = "1";
-      span.textContent = text;
+      // Find suggestions that start with the current text
+      const matches = suggestions.filter(s => {
+        const content = (s.content || s.title || "").toLowerCase();
+        return content.startsWith(currentText.toLowerCase());
+      });
 
-      const sel = window.getSelection();
-      if (!sel || sel.rangeCount === 0) return;
-      const range = sel.getRangeAt(0).cloneRange();
-      range.collapse(false);
-      // Insert after caret
-      // Insert the ghost node and keep the caret BEFORE the ghost so
-      // backspace/delete still affect the user's typed text (the prefix).
-      range.insertNode(span);
-      // Move caret to be before the inserted ghost
-      const caretRange = document.createRange();
-      caretRange.setStartBefore(span);
-      caretRange.collapse(true);
-      sel.removeAllRanges();
-      sel.addRange(caretRange);
-
-      this.ghostEl = span;
-    } else {
-      // For inputs/textarea, create overlay absolute element near caret
-      // Simpler approach: append overlay to body and position near element's end
-      const overlay = document.createElement("div");
-      overlay.className = "sh-inline-overlay";
-      overlay.textContent = text;
-      overlay.dataset.shGhost = "1";
-      // Ensure overlay does not intercept pointer/keyboard events
-      overlay.style.pointerEvents = "none";
-      document.body.appendChild(overlay);
-
-      // Basic positioning: align to input's bounding rect right-bottom
-      const rect = this.el.getBoundingClientRect();
-      overlay.style.left = `${rect.left + 8}px`;
-      overlay.style.top = `${rect.top + 8}px`;
-      this.ghostEl = overlay;
-    }
-  }
-
-  clearGhost() {
-    if (this.ghostEl) {
-      try {
-        this.ghostEl.remove();
-      } catch (e) {}
-      this.ghostEl = null;
-    }
-  }
-
-  clearSuggestion() {
-    this.activeSuggestion = null;
-    this.clearGhost();
-  }
-
-  acceptSuggestion() {
-    if (!this.activeSuggestion) return;
-    // Temporarily suppress further input handling so the manager doesn't re-trigger
-    // when insertText fires input/change events. 400ms is enough for most sites.
-    this.suppressUntil = Date.now() + 400;
-    const insertContent = this.activeSuggestion.content || this.activeSuggestion.title || "";
-
-    // Try to replace the currently typed prefix with the full suggestion
-    try {
-      const prefix = this.getPrefix() || "";
-
-      if (this.el.getAttribute("contenteditable") === "true") {
-        // For contenteditable: remove any existing ghost nodes first
-        try {
-          document.querySelectorAll('[data-sh-ghost]').forEach((n) => n.remove());
-        } catch (e) {}
-
-        // Walk text nodes to find the position to replace the trailing prefix
-        const sel = window.getSelection();
-        if (!sel || sel.rangeCount === 0) {
-          // Fallback: replace entire text
-          (this.el as HTMLElement).innerText = insertContent;
-        } else {
-          const range = sel.getRangeAt(0);
-
-          const isTwitter = window.location.hostname.includes("twitter") || window.location.hostname.includes("x.com");
-
-          // If we're on Twitter and using overlay mode, try a gentler insertion
-          // strategy: delete the currently-typed prefix via the selection and
-          // use execCommand/insertText which Twitter's editor handles better.
-          if (isTwitter) {
-            try {
-              // Determine character index of caret inside the editable using TreeWalker
-              const walkerT = document.createTreeWalker(
-                this.el,
-                NodeFilter.SHOW_TEXT,
-                null
-              );
-
-              let charIndexT = 0;
-              let nodeT: Node | null = walkerT.nextNode();
-              let foundT = false;
-              walkerT.currentNode = this.el;
-              let cumT = 0;
-              while ((nodeT = walkerT.nextNode())) {
-                if (nodeT === range.endContainer) {
-                  charIndexT = cumT + (range.endOffset || 0);
-                  foundT = true;
-                  break;
-                }
-                cumT += (nodeT.nodeValue || '').length;
-              }
-
-              if (!foundT) {
-                charIndexT = (this.el.innerText || '').length;
-              }
-
-              const startIndexT = Math.max(0, charIndexT - (prefix ? prefix.length : 0));
-
-              // Find start node/offset for startIndexT
-              const walker2T = document.createTreeWalker(
-                this.el,
-                NodeFilter.SHOW_TEXT,
-                null
-              );
-              let curT = 0;
-              let startNodeT: Node | null = null;
-              let startOffsetInNodeT = 0;
-              while ((nodeT = walker2T.nextNode())) {
-                const len = (nodeT.nodeValue || '').length;
-                if (curT + len >= startIndexT) {
-                  startNodeT = nodeT;
-                  startOffsetInNodeT = startIndexT - curT;
-                  break;
-                }
-                curT += len;
-              }
-
-              if (startNodeT) {
-                const twitterReplaceRange = document.createRange();
-                try {
-                  twitterReplaceRange.setStart(startNodeT, startOffsetInNodeT);
-                } catch (e) {
-                  twitterReplaceRange.setStart(this.el, 0 as any);
-                }
-                twitterReplaceRange.setEnd(range.endContainer, range.endOffset);
-
-                // Delete existing prefix text
-                twitterReplaceRange.deleteContents();
-
-                // Insert the suggestion text node
-                const tn2 = document.createTextNode(insertContent);
-                twitterReplaceRange.insertNode(tn2);
-
-                // Move caret after inserted node
-                const newRange2 = document.createRange();
-                newRange2.setStartAfter(tn2);
-                newRange2.collapse(true);
-                sel.removeAllRanges();
-                sel.addRange(newRange2);
-
-                // Fire input/change events
-                this.el.dispatchEvent(new InputEvent('input', { bubbles: true, cancelable: true }));
-                this.el.dispatchEvent(new Event('change', { bubbles: true }));
-
-                this.clearSuggestion();
-                return;
-              }
-            } catch (e) {
-              // Fall through to the more robust TreeWalker approach
-              console.warn('Canner: Twitter-specific accept failed, falling back', e);
-            }
-          }
-
-          // Build a TreeWalker to count characters
-          const walker = document.createTreeWalker(
-            this.el,
-            NodeFilter.SHOW_TEXT,
-            null
-          );
-
-          // Compute the character index of the caret within the contenteditable
-          let charIndex = 0;
-          let node: Node | null = walker.nextNode();
-          let found = false;
-          let caretNode: Node | null = range.endContainer;
-          let caretOffset = range.endOffset;
-
-          // Walk nodes again to compute charIndex
-          walker.currentNode = this.el;
-          let cumulative = 0;
-          while ((node = walker.nextNode())) {
-            if (node === range.endContainer) {
-              charIndex = cumulative + (range.endOffset || 0);
-              found = true;
-              break;
-            }
-            cumulative += (node.nodeValue || '').length;
-          }
-
-          if (!found) {
-            // fallback to using innerText length
-            charIndex = (this.el.innerText || '').length;
-          }
-
-          const startIndex = Math.max(0, charIndex - (prefix ? prefix.length : 0));
-
-          // Find the start node/offset for startIndex
-          const walker2 = document.createTreeWalker(
-            this.el,
-            NodeFilter.SHOW_TEXT,
-            null
-          );
-          let cur = 0;
-          let startNode: Node | null = null;
-          let startOffsetInNode = 0;
-          while ((node = walker2.nextNode())) {
-            const len = (node.nodeValue || '').length;
-            if (cur + len >= startIndex) {
-              startNode = node;
-              startOffsetInNode = startIndex - cur;
-              break;
-            }
-            cur += len;
-          }
-
-          if (!startNode) {
-            // fallback: replace entire content
-            (this.el as HTMLElement).innerText = insertContent;
-            this.el.dispatchEvent(new InputEvent('input', { bubbles: true, cancelable: true }));
-          } else {
-            // Create a range that spans from startNode/startOffsetInNode to caret
-            const replaceRange = document.createRange();
-            try {
-              replaceRange.setStart(startNode, startOffsetInNode);
-            } catch (e) {
-              // fallback to start of element
-              replaceRange.setStart(this.el, 0 as any);
-            }
-            replaceRange.setEnd(range.endContainer, range.endOffset);
-
-            // Delete existing prefix text
-            replaceRange.deleteContents();
-
-            // Insert the suggestion text node
-            const textNode = document.createTextNode(insertContent);
-            replaceRange.insertNode(textNode);
-
-            // Move caret after inserted node
-            const newRange = document.createRange();
-            newRange.setStartAfter(textNode);
-            newRange.collapse(true);
-            sel.removeAllRanges();
-            sel.addRange(newRange);
-
-            // Fire input/change events
-            this.el.dispatchEvent(new InputEvent('input', { bubbles: true, cancelable: true }));
-            this.el.dispatchEvent(new Event('change', { bubbles: true }));
-          }
-        }
-      } else if (
-        this.el.tagName === "TEXTAREA" ||
-        (this.el.tagName === "INPUT" && (this.el as HTMLInputElement).type === "text")
-      ) {
-        const input = this.el as HTMLInputElement | HTMLTextAreaElement;
-        const selStart = (input as any).selectionStart || 0;
-        const start = Math.max(0, selStart - (prefix ? prefix.length : 0));
-        const before = input.value.slice(0, start);
-        const after = input.value.slice(selStart || 0);
-        const newVal = before + insertContent + after;
-        input.value = newVal;
-        // Trigger events and set caret after inserted text
-        input.dispatchEvent(new Event('input', { bubbles: true }));
-        input.dispatchEvent(new Event('change', { bubbles: true }));
-        const cursorPos = before.length + insertContent.length;
-        setTimeout(() => {
-          try {
-            input.setSelectionRange(cursorPos, cursorPos);
-          } catch (e) {}
-        }, 10);
-      } else {
-        // Fallback: use insertText which may append; keep suppression to avoid re-show
-        insertText(this.el, insertContent);
+      if (matches.length === 0) {
+        this.clearSuggestion();
+        return;
       }
-    } catch (err) {
-      // If anything fails, fall back to previous insertion
-      insertText(this.el, insertContent);
+
+      // Use the first match
+      const suggestion = matches[0];
+      this.showSuggestion(suggestion, currentText);
+    } catch (error) {
+      console.error('Error fetching suggestions:', error);
+      this.clearSuggestion();
+    }
+  }
+
+  private handleKeydown(e: KeyboardEvent) {
+    if (e.key === 'Tab' && this.currentSuggestion) {
+      e.preventDefault();
+      e.stopPropagation();
+      this.acceptSuggestion();
+    } else if (e.key === 'Escape' && this.currentSuggestion) {
+      e.preventDefault();
+      e.stopPropagation();
+      this.clearSuggestion();
+    } else if (e.key === 'Backspace' || e.key === 'Delete') {
+      // Clear suggestion on delete keys (fixes Twitter backspace issue)
+      setTimeout(() => {
+        const currentText = this.getCurrentText();
+        if (!currentText || currentText.length < 2) {
+          this.clearSuggestion();
+        }
+      }, 10);
+    }
+  }
+
+  private getCurrentText(): string {
+    if (this.element.getAttribute('contenteditable') === 'true') {
+      const selection = window.getSelection();
+      if (!selection || selection.rangeCount === 0) return '';
+
+      const range = selection.getRangeAt(0);
+      const tempRange = range.cloneRange();
+      tempRange.selectNodeContents(this.element);
+      tempRange.setEnd(range.endContainer, range.endOffset);
+
+      const text = tempRange.cloneContents().textContent || '';
+      // Get the last word
+      const words = text.trim().split(/\s+/);
+      return words[words.length - 1] || '';
+    } else if (this.element.tagName === 'TEXTAREA' || this.element.tagName === 'INPUT') {
+      const input = this.element as HTMLInputElement | HTMLTextAreaElement;
+      const cursorPos = input.selectionStart || 0;
+      const text = input.value.substring(0, cursorPos);
+      const words = text.trim().split(/\s+/);
+      return words[words.length - 1] || '';
+    }
+    return '';
+  }
+
+  private async fetchSuggestions(prefix: string): Promise<any[]> {
+    return new Promise((resolve) => {
+      chrome.storage.local.get(['responses'], (result) => {
+        const responses = result.responses || [];
+        const prefixLower = prefix.toLowerCase();
+
+        const matches = responses.filter((response: any) => {
+          const content = (response.content || response.title || "").toLowerCase();
+          return content.startsWith(prefixLower);
+        });
+
+        resolve(matches);
+      });
+    });
+  }
+
+  private showSuggestion(suggestion: any, currentText: string) {
+    this.currentSuggestion = suggestion;
+    const fullText = suggestion.content || suggestion.title || '';
+
+    // Detect platform for different display strategies
+    const isLinkedIn = window.location.hostname.includes("linkedin");
+    const isTwitter = window.location.hostname.includes("twitter") || window.location.hostname.includes("x.com");
+
+    // Platform-specific suggestion display logic
+    if (isTwitter) {
+      // Twitter-specific logic: show only the remainder to avoid duplication
+      let displayText = fullText;
+      if (fullText.toLowerCase().startsWith(currentText.toLowerCase())) {
+        displayText = fullText.substring(currentText.length);
+      }
+
+      // Truncate long suggestions for Twitter's smaller input box
+      const maxLength = 70; // Optimized limit for Twitter's input box
+      if (displayText.length > maxLength) {
+        displayText = displayText.substring(0, maxLength - 3) + "...";
+      }
+
+      this.createGhostElement(displayText, currentText, fullText, 'twitter');
+    } else {
+      // LinkedIn and others: show the full text in gray behind
+      this.createGhostElement(fullText, currentText, fullText, 'linkedin');
+    }
+  }
+
+  private createGhostElement(text: string, _currentText: string, _fullText: string, platform: 'linkedin' | 'twitter') {
+    this.clearGhostElement();
+
+    if (this.element.getAttribute('contenteditable') === 'true') {
+      const overlay = document.createElement('div');
+      overlay.className = 'canner-ghost-suggestion';
+
+      if (platform === 'linkedin') {
+        // LinkedIn: show the full suggestion text with proper styling
+        overlay.textContent = _fullText;
+        overlay.style.cssText = `
+          position: fixed;
+          color: rgba(102, 112, 122, 0.3);
+          pointer-events: none;
+          z-index: 9999;
+          white-space: pre-wrap;
+          overflow-wrap: break-word;
+          word-wrap: break-word;
+          font-family: inherit;
+          font-size: inherit;
+          font-weight: inherit;
+          line-height: inherit;
+          max-width: calc(100% - 40px);
+          display: block;
+        `;
+        this.positionLinkedInOverlay(overlay);
+      } else {
+        // Twitter: show only the remainder text at cursor position
+        overlay.textContent = text;
+        overlay.style.cssText = `
+          position: fixed;
+          color: rgba(102, 112, 122, 0.7);
+          pointer-events: none;
+          z-index: 10000;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          font-family: inherit;
+          font-size: inherit;
+          font-weight: inherit;
+          line-height: inherit;
+          max-width: 300px;
+          display: inline-block;
+        `;
+        this.positionTwitterOverlay(overlay);
+      }
+
+      this.ghostElement = overlay;
+    }
+  }
+
+  private positionLinkedInOverlay(overlay: HTMLElement) {
+    const containerRect = this.element.getBoundingClientRect();
+
+    // Match the element's font styles exactly
+    const computedStyle = window.getComputedStyle(this.element);
+    overlay.style.fontFamily = computedStyle.fontFamily;
+    overlay.style.fontSize = computedStyle.fontSize;
+    overlay.style.fontWeight = computedStyle.fontWeight;
+    overlay.style.lineHeight = computedStyle.lineHeight;
+
+    // Position the overlay to fill the entire input area
+    overlay.style.left = `${containerRect.left + 10}px`;
+    overlay.style.top = `${containerRect.top + 10}px`;
+    overlay.style.width = `${containerRect.width - 20}px`;
+
+    document.body.appendChild(overlay);
+  }
+
+  private positionTwitterOverlay(overlay: HTMLElement) {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return;
+
+    const range = selection.getRangeAt(0);
+    const rect = range.getBoundingClientRect();
+    const containerRect = this.element.getBoundingClientRect();
+
+    // Match the element's font styles exactly
+    const computedStyle = window.getComputedStyle(this.element);
+    overlay.style.fontFamily = computedStyle.fontFamily;
+    overlay.style.fontSize = computedStyle.fontSize;
+    overlay.style.fontWeight = computedStyle.fontWeight;
+    overlay.style.lineHeight = computedStyle.lineHeight;
+
+    // Position exactly at cursor baseline for Twitter
+    let left = rect.right + 1;
+    let top = rect.top;
+
+    // Calculate baseline alignment for perfect text alignment
+    const fontSize = parseFloat(computedStyle.fontSize) || 16;
+    const baselineOffset = fontSize * 0.85;
+    top = rect.top + (rect.height - fontSize) / 2 + baselineOffset - fontSize;
+
+    // Ensure the overlay stays within Twitter's small container boundaries
+    const overlayWidth = overlay.offsetWidth;
+
+    // Check if overlay exceeds container right boundary (important for Twitter)
+    if (left + overlayWidth > containerRect.right - 5) {
+      // Calculate available space and set reasonable max width
+      const availableWidth = containerRect.right - left - 10;
+      if (availableWidth > 100) {
+        // Allow up to 250px but not more than available space
+        const maxWidth = Math.min(250, availableWidth);
+        overlay.style.maxWidth = `${maxWidth}px`;
+      } else if (availableWidth > 50) {
+        // Minimum usable space
+        overlay.style.maxWidth = `${availableWidth}px`;
+      } else {
+        // If no space available, don't show the suggestion
+        overlay.remove();
+        return;
+      }
     }
 
-    // Clear active suggestion / ghost
+    // Apply final position
+    overlay.style.left = `${left}px`;
+    overlay.style.top = `${top}px`;
+
+    document.body.appendChild(overlay);
+  }
+
+  private clearGhostElement() {
+    if (this.ghostElement) {
+      this.ghostElement.remove();
+      this.ghostElement = null;
+    }
+  }
+
+  private clearSuggestion() {
+    this.currentSuggestion = null;
+    this.clearGhostElement();
+  }
+
+  private acceptSuggestion() {
+    if (!this.currentSuggestion) return;
+
+    // Suppress further input handling temporarily
+    this.suppressedUntil = Date.now() + 500;
+
+    const fullText = this.currentSuggestion.content || this.currentSuggestion.title || '';
+    const currentText = this.getCurrentText();
+
+    // Replace current text with full suggestion
+    if (this.element.getAttribute('contenteditable') === 'true') {
+      this.replaceInContentEditable(fullText, currentText);
+    } else if (this.element.tagName === 'TEXTAREA' || this.element.tagName === 'INPUT') {
+      this.replaceInInput(fullText, currentText);
+    }
+
     this.clearSuggestion();
+  }
+
+  private replaceInContentEditable(fullText: string, _currentText: string) {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return;
+
+    const range = selection.getRangeAt(0);
+
+    // Create a range to select the current text
+    const tempRange = range.cloneRange();
+    tempRange.selectNodeContents(this.element);
+    tempRange.setEnd(range.endContainer, range.endOffset);
+
+    const currentContent = tempRange.cloneContents().textContent || '';
+    const lastSpaceIndex = currentContent.lastIndexOf(' ');
+    const startIndex = lastSpaceIndex >= 0 ? lastSpaceIndex + 1 : 0;
+
+    // Create range to replace the current word
+    const replaceRange = document.createRange();
+    replaceRange.setStart(this.element, 0);
+
+    // Find the text node and offset for the start
+    const walker = document.createTreeWalker(this.element, NodeFilter.SHOW_TEXT);
+    let currentOffset = 0;
+    let startNode = null;
+    let startOffset = 0;
+
+    while (walker.nextNode()) {
+      const node = walker.currentNode as Text;
+      const nodeLength = node.textContent?.length || 0;
+
+      if (currentOffset + nodeLength >= startIndex) {
+        startNode = node;
+        startOffset = startIndex - currentOffset;
+        break;
+      }
+      currentOffset += nodeLength;
+    }
+
+    if (startNode) {
+      replaceRange.setStart(startNode, startOffset);
+      replaceRange.setEnd(range.endContainer, range.endOffset);
+      replaceRange.deleteContents();
+
+      const textNode = document.createTextNode(fullText);
+      replaceRange.insertNode(textNode);
+
+      // Move cursor to end
+      const newRange = document.createRange();
+      newRange.setStartAfter(textNode);
+      newRange.collapse(true);
+      selection.removeAllRanges();
+      selection.addRange(newRange);
+
+      // Trigger events
+      this.element.dispatchEvent(new InputEvent('input', { bubbles: true }));
+      this.element.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+  }
+
+  private replaceInInput(fullText: string, _currentText: string) {
+    const input = this.element as HTMLInputElement | HTMLTextAreaElement;
+    const cursorPos = input.selectionStart || 0;
+    const value = input.value;
+
+    // Find the start of the current word
+    let startPos = cursorPos - 1;
+    while (startPos >= 0 && value[startPos] !== ' ' && value[startPos] !== '\n') {
+      startPos--;
+    }
+    startPos++;
+
+    const newValue = value.substring(0, startPos) + fullText + value.substring(cursorPos);
+    input.value = newValue;
+
+    // Set cursor position
+    const newCursorPos = startPos + fullText.length;
+    input.setSelectionRange(newCursorPos, newCursorPos);
+
+    // Trigger events
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
   }
 }
 
@@ -602,7 +530,7 @@ function addMessageHelpers() {
 
     // Create a simple unique ID
     if (!box.id) {
-      box.id = `sh-box-${Math.random().toString(36).substr(2, 9)}`;
+      box.id = `sh-box-${Math.random().toString(36).substring(2, 11)}`;
     }
 
     // Check if we already processed this element
@@ -635,7 +563,7 @@ function addMessageHelpers() {
         }
 
         if (!suggestionManagers[resolvedEditable.id]) {
-          suggestionManagers[resolvedEditable.id] = new SuggestionManager(resolvedEditable as HTMLElement);
+          suggestionManagers[resolvedEditable.id] = new InlineSuggestionManager(resolvedEditable as HTMLElement);
         }
       } catch (err) {
         console.error("Canner: Failed to attach SuggestionManager:", err);
@@ -665,13 +593,13 @@ function addMessageHelpers() {
       resolvedEditable.id = `${box.id}-editable`;
     }
 
-    // Attach SuggestionManager for inline completions to the resolved editable
+    // Attach InlineSuggestionManager for inline completions to the resolved editable
     try {
       if (!suggestionManagers[resolvedEditable.id]) {
-        suggestionManagers[resolvedEditable.id] = new SuggestionManager(resolvedEditable as HTMLElement);
+        suggestionManagers[resolvedEditable.id] = new InlineSuggestionManager(resolvedEditable as HTMLElement);
       }
     } catch (err) {
-      console.error("Canner: Failed to create SuggestionManager:", err);
+      console.error("Canner: Failed to create InlineSuggestionManager:", err);
     }
 
     injectedElements.add(box.id);
@@ -1162,7 +1090,7 @@ function addConnectionHelpers() {
 
     // Create simple ID
     if (!box.id) {
-      box.id = `lh-conn-${Math.random().toString(36).substr(2, 9)}`;
+      box.id = `lh-conn-${Math.random().toString(36).substring(2, 11)}`;
     }
 
     if (injectedElements.has(box.id)) {
@@ -1608,7 +1536,7 @@ if (document.readyState === "loading") {
 }
 
 // Listen for messages from popup or background script
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.action === "insertResponse") {
     const activeElement = document.activeElement as HTMLElement;
     if (
