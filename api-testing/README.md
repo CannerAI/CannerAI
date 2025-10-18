@@ -4,9 +4,9 @@ This directory contains all resources related to API testing for the Canner proj
 
 ## Structure
 
-- [postman/](file:///C:/Project/OpenSource/canner/api-testing/postman) - Postman collections, test data, and documentation
-  - [collection.json](file:///C:/Project/OpenSource/ccanner/api-testing/postman/collection.json) - Main Postman collection for testing all API endpoints
-  - [test_data.json](file:///C:/Project/OpenSource/canner/api-testing/postman/test_data.json) - Test data file formatted for Postman collection runs
+- [postman/](postman/) - Postman collections, test data, and documentation
+  - [collection.json](postman/collection.json) - Main Postman collection for testing all API endpoints
+  - [test_data.json](postman/test_data.json) - Test data file formatted for Postman collection runs
 
 ## Usage
 
@@ -15,14 +15,14 @@ This directory contains all resources related to API testing for the Canner proj
 
 2. **Local Import**: Import the Postman collection into Postman:
    - Open Postman
-   - Click "Import" and select [collection.json](file:///C:/Project/OpenSource/canner/api-testing/postman/collection.json)
+   - Click "Import" and select [collection.json](postman/collection.json)
 
 3. **Automated Response ID Handling**: The collection includes automatic handling of dynamic response IDs:
    - The "Create Response and Set ID" request automatically captures and stores the response ID
    - All subsequent requests (Get, Update, Delete) use the captured ID automatically
    - No manual ID management required during testing workflows
 
-4. Use the [test_data.json](file:///C:/Project/OpenSource/canner/api-testing/postman/test_data.json) file for collection runs or individual requests
+4. Use the [test_data.json](postman/test_data.json) file for collection runs or individual requests
 
 ## Purpose
 
