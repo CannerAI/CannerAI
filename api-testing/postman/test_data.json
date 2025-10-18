@@ -1,0 +1,62 @@
+[
+  {
+    "id": 1,
+    "title": "Weather Forecast Response",
+    "content": "Today's forecast includes light rain with temperatures between 18°C and 25°C. Expect clear skies by the evening.",
+    "tags": "[\"weather\", \"forecast\", \"daily\"]"
+  },
+  {
+    "id": 2,
+    "title": "System Maintenance Notice",
+    "content": "Scheduled maintenance will take place on Saturday between 2 AM and 4 AM UTC. Some services may be temporarily unavailable.",
+    "tags": "[\"maintenance\", \"system\", \"alert\"]"
+  },
+  {
+    "id": 3,
+    "title": "New Feature Release",
+    "content": "We’ve introduced dark mode support in the latest version. You can enable it under user preferences.",
+    "tags": "[\"update\", \"features\", \"ui\"]"
+  },
+  {
+    "id": 4,
+    "title": "Payment Confirmation",
+    "content": "Your recent payment of $49.99 has been successfully processed. Transaction ID: TX-204582.",
+    "tags": "[\"payment\", \"confirmation\", \"transaction\"]"
+  },
+  {
+    "id": 5,
+    "title": "Survey Invitation",
+    "content": "We'd love your feedback! Participate in our short survey to help us improve future releases.",
+    "tags": "[\"survey\", \"feedback\", \"user-insights\"]"
+  },
+  {
+    "id": 6,
+    "title": "Security Update",
+    "content": "A new security patch has been deployed. Please restart your API client to ensure all updates are applied.",
+    "tags": "[\"security\", \"update\", \"patch\"]"
+  },
+  {
+    "id": 7,
+    "title": "Subscription Renewal",
+    "content": "Your annual subscription has been renewed successfully. Next billing cycle will start on Nov 15, 2025.",
+    "tags": "[\"subscription\", \"billing\", \"account\"]"
+  },
+  {
+    "id": 8,
+    "title": "Weekly Analytics Report",
+    "content": "This week's analytics report is ready. Overall engagement increased by 8% with a 3% rise in API usage frequency.",
+    "tags": "[\"analytics\", \"report\", \"usage\"]"
+  },
+  {
+    "id": 9,
+    "title": "Data Export Completed",
+    "content": "Your requested data export has finished. You can download your CSV files from the dashboard under 'Exports'.",
+    "tags": "[\"export\", \"data\", \"reports\"]"
+  },
+  {
+    "id": 10,
+    "title": "Community Update",
+    "content": "Join our new developer community forum for the latest tips, release updates, and support discussions.",
+    "tags": "[\"community\", \"discussion\", \"release\"]"
+  }
+]
