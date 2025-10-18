@@ -3,13 +3,12 @@ from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.sql import func
 import uuid
 from database.connection import Base, DATABASE_URL
-
+import json
 
 class Response(Base):
     """SQLAlchemy model for responses - matches PostgreSQL init.sql schema"""
     __tablename__ = "responses"
     
-    # Use UUID for PostgreSQL, String for SQLite compatibility
     if DATABASE_URL and DATABASE_URL.startswith('postgresql'):
         id = Column(UUID(as_uuid=False), primary_key=True, server_default=func.gen_random_uuid())
         tags = Column(JSONB, server_default="'[]'::jsonb")
@@ -24,10 +23,9 @@ class Response(Base):
 
     def to_dict(self):
         """Convert model to dictionary"""
-        # Handle different tag formats (JSONB vs Text)
+        
         if isinstance(self.tags, str):
             try:
-                import json
                 tags = json.loads(self.tags)
             except:
                 tags = []
@@ -35,7 +33,7 @@ class Response(Base):
             tags = self.tags or []
             
         return {
-            'id': str(self.id),  # Always return as string for API consistency
+            'id': str(self.id),
             'title': self.title,
             'content': self.content,
             'tags': tags,

@@ -1,13 +1,10 @@
 from typing import List, Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import func, String
+from uuid import UUID
 from database.models import Response
-from api.models import ResponseCreate, ResponseUpdate
+from models.models import ResponseCreate, ResponseUpdate
 import uuid
-import logging
-
-logger = logging.getLogger(__name__)
-
 
 class ResponseService:
     """Service layer for response operations"""
@@ -24,14 +21,12 @@ class ResponseService:
             from database.connection import DATABASE_URL
             
             if DATABASE_URL and DATABASE_URL.startswith('postgresql'):
-                # PostgreSQL JSONB search - cast JSONB to text for searching
                 query = query.filter(
                     (Response.title.ilike(search_term)) |
                     (Response.content.ilike(search_term)) |
                     (func.cast(Response.tags, String).ilike(search_term))
                 )
             else:
-                # SQLite search
                 query = query.filter(
                     (Response.title.ilike(search_term)) |
                     (Response.content.ilike(search_term)) |
@@ -41,7 +36,7 @@ class ResponseService:
         results = query.order_by(Response.updated_at.desc()).limit(limit).all()
         return results
     
-    def get_response_by_id(self, response_id: str) -> Optional[Response]:
+    def get_response_by_id(self, response_id: UUID) -> Optional[Response]:
         """Get a single response by ID"""
         response = self.db.query(Response).filter(Response.id == response_id).first()
         return response
@@ -49,7 +44,6 @@ class ResponseService:
     def create_response(self, response_data: ResponseCreate) -> Response:
         """Create a new response"""
         
-        # Let the database generate the ID (UUID for PostgreSQL, string for SQLite)
         db_response = Response(
             title=response_data.title,
             content=response_data.content,
@@ -65,17 +59,15 @@ class ResponseService:
             self.db.rollback()
             raise
     
-    def update_response(self, response_id: str, response_data: ResponseUpdate) -> Optional[Response]:
+    def update_response(self, response_id: UUID, response_data: ResponseUpdate) -> Optional[Response]:
         """Update an existing response"""
         
         db_response = self.get_response_by_id(response_id)
         if not db_response:
             return None
         
-        # Track what's being updated
         updates = []
         
-        # Update only provided fields
         if response_data.title is not None:
             db_response.title = response_data.title
             updates.append("title")
@@ -96,7 +88,7 @@ class ResponseService:
             self.db.rollback()
             raise
     
-    def delete_response(self, response_id: str) -> bool:
+    def delete_response(self, response_id: UUID) -> bool:
         """Delete a response"""
         
         db_response = self.get_response_by_id(response_id)

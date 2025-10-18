@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 from datetime import datetime
-from api.models import HealthResponse
+from models.models import HealthResponse
 from database.connection import test_database_connection
 
 router = APIRouter(
