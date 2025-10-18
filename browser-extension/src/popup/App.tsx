@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { getResponses, saveResponse, deleteResponse, trackUsage, Response } from "../utils/api";
+import React, { useEffect, useState } from "react";
+import { deleteResponse, getResponses, Response, saveResponse, trackUsage, updateResponse } from "../utils/api";
 
 type SortOption = "date-desc" | "date-asc" | "alphabetical" | "most-used" | "custom";
 
@@ -8,10 +8,13 @@ const App: React.FC = () => {
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [notification, setNotification] = useState<string>("");
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
   const [sortBy, setSortBy] = useState<SortOption>("date-desc");
+  const [saving, setSaving] = useState(false);
 
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
@@ -67,6 +70,25 @@ const App: React.FC = () => {
     }
   }
 
+  function openCreateModal() {
+    setIsEditing(false);
+    setEditingId(null);
+    setTitle("");
+    setContent("");
+    setTags("");
+    setShowModal(true);
+  }
+
+  function openEditModal(r: Response) {
+    setIsEditing(true);
+    setEditingId(r.id || null);
+    setTitle(r.title || "");
+    setContent(r.content || "");
+    const t = Array.isArray(r.tags) ? r.tags.join(", ") : (r.tags || "");
+    setTags(t);
+    setShowModal(true);
+  }
+
   const filtered = responses.filter((r) => {
     if (!query.trim()) return true;
     const q = query.toLowerCase();
@@ -99,27 +121,53 @@ const App: React.FC = () => {
       setNotification("⚠️ Title and content are required");
       return;
     }
-    setIsSaving(true);
-
-    const newResp: Partial<Response> = {
+    const baseData: Partial<Response> = {
       title: title.trim(),
       content: content.trim(),
       tags: tags.split(",").map((t) => t.trim()).filter(Boolean),
     };
 
-    try {
-      await saveResponse(newResp as Response);
-      setShowModal(false);
-      setTitle("");
-      setContent("");
-      setTags("");
-      await load();
-      setNotification("✓ Response saved successfully");
-    } catch (e) {
-      console.error(e);
-      setNotification("⚠️ Failed to save response");
-    } finally {
-      setIsSaving(false);
+    if (isEditing && editingId) {
+      // Optimistic update for edit
+      const prev = responses;
+      const optimistic = responses.map((r) =>
+        r.id === editingId ? { ...r, ...baseData } as Response : r
+      );
+      setResponses(optimistic);
+      setSaving(true);
+      setNotification("⌛ Saving...");
+      try {
+        const updated = await updateResponse(editingId, baseData);
+        // Ensure state reflects server result
+        setResponses((cur) => cur.map((r) => (r.id === editingId ? { ...r, ...updated } : r)));
+        setShowModal(false);
+        setSaving(false);
+        setNotification("✓ Updated successfully");
+      } catch (e) {
+        console.error(e);
+        // Rollback
+        setResponses(prev);
+        setSaving(false);
+        setNotification("⚠️ Failed to update");
+      }
+    } else {
+      // Create flow (existing)
+      try {
+        setSaving(true);
+        setNotification("⌛ Saving...");
+        await saveResponse(baseData as Response);
+        setShowModal(false);
+        setTitle("");
+        setContent("");
+        setTags("");
+        await load();
+        setNotification("✓ Response saved successfully");
+      } catch (e) {
+        console.error(e);
+        setNotification("⚠️ Failed to save response");
+      } finally {
+        setSaving(false);
+      }
     }
   }
 
@@ -272,7 +320,7 @@ const App: React.FC = () => {
                 </svg>
               )}
             </button>
-            <button className="btn-new" onClick={() => setShowModal(true)} aria-label="Create new response">
+            <button className="btn-new" onClick={openCreateModal} aria-label="Create new response">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M12 5v14M5 12h14"/>
               </svg>
@@ -341,7 +389,7 @@ const App: React.FC = () => {
                 </svg>
                 <h3>No saved responses</h3>
                 <p>Create your first response to get started</p>
-                <button className="btn-primary" onClick={() => setShowModal(true)}>
+                <button className="btn-primary" onClick={openCreateModal}>
                   Create Response
                 </button>
               </>
@@ -374,16 +422,16 @@ const App: React.FC = () => {
                 <div className="card-actions">
                   <button className="btn-action btn-insert" onClick={() => handleInsert(r.content, r.id)} aria-label="Insert response">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>
+                      <path d="M12 5v14M5 12h14"/>
                     </svg>
                     Insert
                   </button>
-                  <button className="btn-action btn-copy" onClick={() => handleCopy(r.content)} aria-label="Copy response">
+                  <button className="btn-action" onClick={() => openEditModal(r)} aria-label="Edit response">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                      <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z"/>
+                      <path d="M14.06 4.94l3.75 3.75"/>
                     </svg>
-                    Copy
+                    Edit
                   </button>
                   <button className="btn-action btn-delete" onClick={() => handleDelete(r.id)} aria-label="Delete response">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -406,12 +454,11 @@ const App: React.FC = () => {
         </svg>
         Press <kbd>Ctrl+Shift+L</kbd> on LinkedIn pages
       </footer>
-
       {showModal && (
         <div className="modal-overlay" onClick={() => setShowModal(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="modal-title">
             <div className="modal-header">
-              <h2 id="modal-title">Create Response</h2>
+              <h2 id="modal-title">{isEditing ? 'Edit Response' : 'Create Response'}</h2>
               <button className="btn-close" onClick={() => setShowModal(false)} aria-label="Close modal">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M18 6L6 18M6 6l12 12"/>
@@ -455,32 +502,16 @@ const App: React.FC = () => {
               </div>
             </div>
             <div className="modal-footer">
-              <button className="btn-secondary" disabled={isSaving} onClick={() => setShowModal(false)}>
+              <button className="btn-secondary" disabled={saving} onClick={() => setShowModal(false)}>
                 Cancel
               </button>
-              <button
-                type="button"
-                className="btn-primary"
-                onClick={handleSave}
-                disabled={isSaving}
-                aria-busy={isSaving}
-                aria-live="polite"
-              >
-                {isSaving
-                  ? <>
-                    <svg className="spinner-icon" width="16" height="16" viewBox="0 0 50 50" fill="none" aria-hidden="true">
-                      <circle cx="25" cy="25" r="20" stroke="currentColor" strokeWidth="5" opacity="0.2"/>
-                      <path d="M25 5a20 20 0 0 1 20 20" stroke="currentColor" strokeWidth="5" strokeLinecap="round"/>
-                    </svg>
-                    Saving... </>
-                  : <>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
-                      <polyline points="17 21 17 13 7 13 7 21"/>
-                      <polyline points="7 3 7 8 15 8"/>
-                    </svg>
-                    Save Response </>
-                }
+              <button className="btn-primary" onClick={handleSave} disabled={saving}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                  <polyline points="17 21 17 13 7 13 7 21"/>
+                  <polyline points="7 3 7 8 15 8"/>
+                </svg>
+                {saving ? (isEditing ? 'Saving changes...' : 'Saving...') : (isEditing ? 'Save Changes' : 'Save Response')}
               </button>
             </div>
           </div>
