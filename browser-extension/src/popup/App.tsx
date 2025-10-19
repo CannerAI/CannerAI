@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { deleteResponse, getResponses, Response, saveResponse, trackUsage, updateResponse } from "../utils/api";
 
-type SortOption = "date-desc" | "date-asc" | "alphabetical" | "most-used" | "custom";
+type SortOption = "date-desc" | "date-asc" | "alphabetical" | "most-used";
 
 const App: React.FC = () => {
   const [responses, setResponses] = useState<Response[]>([]);
@@ -20,7 +20,6 @@ const App: React.FC = () => {
   const [content, setContent] = useState("");
   const [tags, setTags] = useState("");
   const [isSaving, setIsSaving] = useState(false);
-  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
   useEffect(() => {
     load();
@@ -65,7 +64,7 @@ const App: React.FC = () => {
   async function loadSortPreference() {
     const result = await chrome.storage.sync.get(['sortBy']);
     const savedSortBy = result.sortBy;
-    if (savedSortBy && ['date-desc', 'date-asc', 'alphabetical', 'most-used', 'custom'].includes(savedSortBy)) {
+    if (savedSortBy && ['date-desc', 'date-asc', 'alphabetical', 'most-used'].includes(savedSortBy)) {
       setSortBy(savedSortBy as SortOption);
     }
   }
@@ -109,8 +108,6 @@ const App: React.FC = () => {
         return a.title.localeCompare(b.title);
       case "most-used":
         return (b.usage_count || 0) - (a.usage_count || 0);
-      case "custom":
-        return (a.custom_order || 0) - (b.custom_order || 0);
       default:
         return 0;
     }
@@ -202,9 +199,21 @@ const App: React.FC = () => {
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       if (tab?.id) {
-        chrome.tabs.sendMessage(tab.id, { action: "insertResponse", content: text }, (res) => {
+        chrome.tabs.sendMessage(tab.id, { action: "insertResponse", content: text }, async (res) => {
           if (res?.success) {
             setNotification("✓ Inserted successfully");
+            // Track usage when response is successfully inserted
+            if (responseId) {
+              try {
+                await trackUsage(responseId);
+                // Update local state to reflect usage count
+                setResponses(prev => prev.map(r => 
+                  r.id === responseId ? { ...r, usage_count: (r.usage_count || 0) + 1 } : r
+                ));
+              } catch (error) {
+                console.error("Failed to track usage:", error);
+              }
+            }
             setTimeout(() => window.close(), 500);
           } else {
             setNotification("⚠️ No input field detected");
@@ -215,61 +224,6 @@ const App: React.FC = () => {
       console.error(e);
       setNotification("⚠️ Failed to insert");
     }
-  }
-
-  const handleDragStart = (e: React.DragEvent, index: number) => {
-    if (sortBy !== "custom") return;
-    setDraggedIndex(index);
-    e.dataTransfer.effectAllowed = "move";
-  };
-
-  const handleDragOver = (e: React.DragEvent) => {
-    if (sortBy !== "custom") return;
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
-  };
-
-  const handleDrop = async (e: React.DragEvent, dropIndex: number) => {
-    if (sortBy !== "custom" || draggedIndex === null || draggedIndex === dropIndex) return;
-    
-    e.preventDefault();
-    
-    const newResponses = [...sortedResponses];
-    const draggedItem = newResponses[draggedIndex];
-    
-    newResponses.splice(draggedIndex, 1);
-    newResponses.splice(dropIndex, 0, draggedItem);
-    
-    const updatedResponses = newResponses.map((response, index) => ({
-      ...response,
-      custom_order: index
-    }));
-    
-    setResponses(updatedResponses);
-    
-    try {
-      for (const response of updatedResponses) {
-        if (response.id) {
-          await saveResponse({ ...response, custom_order: response.custom_order });
-        }
-      }
-      setNotification("✓ Custom order saved");
-    } catch (error) {
-      console.error("Failed to save custom order:", error);
-      setNotification("⚠️ Failed to save custom order");
-    }
-    
-    setDraggedIndex(null);
-  };
-
-  const handleDragEnd = () => {
-    setDraggedIndex(null);
-  };
-
-  function handleCopy(text: string) {
-    navigator.clipboard.writeText(text).then(() => {
-      setNotification("✓ Copied to clipboard");
-    });
   }
 
   return (
@@ -305,7 +259,6 @@ const App: React.FC = () => {
                 <option value="date-asc">Oldest First</option>
                 <option value="alphabetical">Alphabetical</option>
                 <option value="most-used">Most Used</option>
-                <option value="custom">Custom Order</option>
               </select>
             </div>
             <button className="theme-toggle" onClick={() => setIsDarkMode(!isDarkMode)} aria-label="Toggle dark mode">
@@ -400,12 +353,7 @@ const App: React.FC = () => {
             {sortedResponses.map((r, index) => (
               <div 
                 key={r.id} 
-                className={`response-card ${deletingIds.has(r.id!) ? 'sliding-out' : ''} ${sortBy === 'custom' ? 'draggable' : ''}`}
-                draggable={sortBy === 'custom'}
-                onDragStart={(e) => handleDragStart(e, index)}
-                onDragOver={handleDragOver}
-                onDrop={(e) => handleDrop(e, index)}
-                onDragEnd={handleDragEnd}
+                className={`response-card ${deletingIds.has(r.id!) ? 'sliding-out' : ''}`}
               >
                 <div className="card-header">
                   <h3 className="card-title">{r.title}</h3>
