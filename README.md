@@ -40,9 +40,13 @@ graph TB
     BG <-->|REST API| API
     API <--> DB
     
-    style UI fill:#61dafb,stroke:#333,stroke-width:2px
-    style API fill:#3776ab,stroke:#333,stroke-width:2px
-    style DB fill:#336791,stroke:#333,stroke-width:2px
+    style UI fill:#61dafb,stroke:#000,stroke-width:3px,color:#000
+    style API fill:#3776ab,stroke:#000,stroke-width:3px,color:#fff
+    style DB fill:#336791,stroke:#000,stroke-width:3px,color:#fff
+    style CS fill:#ffd700,stroke:#000,stroke-width:3px,color:#000
+    style BG fill:#90ee90,stroke:#000,stroke-width:3px,color:#000
+    style LI fill:#0a66c2,stroke:#000,stroke-width:3px,color:#fff
+    style TW fill:#1da1f2,stroke:#000,stroke-width:3px,color:#fff
 ```
 
 **📚 For detailed architecture documentation, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**

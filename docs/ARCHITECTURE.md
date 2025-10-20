@@ -74,14 +74,14 @@ graph TB
     PGA -.->|Database Management| DB
     API -->|Auto-Generated| SWAGGER
     
-    style UI fill:#61dafb,stroke:#333,stroke-width:2px
-    style CS fill:#ffd700,stroke:#333,stroke-width:2px
-    style BG fill:#90ee90,stroke:#333,stroke-width:2px
-    style API fill:#3776ab,stroke:#333,stroke-width:2px
-    style DB fill:#336791,stroke:#333,stroke-width:2px
-    style NGINX fill:#009639,stroke:#333,stroke-width:2px
-    style LI fill:#0a66c2,stroke:#333,stroke-width:2px
-    style TW fill:#1da1f2,stroke:#333,stroke-width:2px
+    style UI fill:#61dafb,stroke:#000,stroke-width:3px,color:#000
+    style CS fill:#ffd700,stroke:#000,stroke-width:3px,color:#000
+    style BG fill:#90ee90,stroke:#000,stroke-width:3px,color:#000
+    style API fill:#3776ab,stroke:#000,stroke-width:3px,color:#fff
+    style DB fill:#336791,stroke:#000,stroke-width:3px,color:#fff
+    style NGINX fill:#009639,stroke:#000,stroke-width:3px,color:#fff
+    style LI fill:#0a66c2,stroke:#000,stroke-width:3px,color:#fff
+    style TW fill:#1da1f2,stroke:#000,stroke-width:3px,color:#fff
 ```
 
 ### Component Interaction Flow
