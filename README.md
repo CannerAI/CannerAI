@@ -11,6 +11,48 @@
 - Select from a variety of pre-defined response templates
 - Format linked post with Ease
 
+## 🏗️ Architecture
+
+Canner is built with a modern, scalable architecture:
+
+```mermaid
+graph TB
+    subgraph "Browser Extension"
+        UI[React UI]
+        CS[Content Scripts]
+        BG[Background Worker]
+    end
+    
+    subgraph "Backend Services"
+        API[Flask API]
+        DB[(PostgreSQL)]
+    end
+    
+    subgraph "Social Platforms"
+        LI[LinkedIn]
+        TW[Twitter]
+    end
+    
+    UI <--> BG
+    CS --> LI
+    CS --> TW
+    CS <--> BG
+    BG <-->|REST API| API
+    API <--> DB
+    
+    style UI fill:#61dafb,stroke:#333,stroke-width:2px
+    style API fill:#3776ab,stroke:#333,stroke-width:2px
+    style DB fill:#336791,stroke:#333,stroke-width:2px
+```
+
+**📚 For detailed architecture documentation, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**
+
+Key Components:
+- **Browser Extension** (TypeScript + React): User interface and social media integration
+- **Flask Backend** (Python 3.12): RESTful API with Swagger documentation
+- **PostgreSQL Database**: Persistent storage for response templates
+- **Docker Compose**: Containerized deployment for easy setup
+
 ## 📄 **Contributing**
 
 We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
