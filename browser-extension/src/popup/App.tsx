@@ -1,7 +1,84 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { deleteResponse, getResponses, Response, saveResponse, trackUsage, updateResponse } from "../utils/api";
 
 type SortOption = "date-desc" | "date-asc" | "alphabetical" | "most-used";
+
+interface SortDropdownProps {
+  value: SortOption;
+  onChange: (value: SortOption) => void;
+}
+
+const SortDropdown: React.FC<SortDropdownProps> = ({ value, onChange }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const options = [
+    { value: "date-desc" as SortOption, label: "Newest First" },
+    { value: "date-asc" as SortOption, label: "Oldest First" },
+    { value: "alphabetical" as SortOption, label: "Alphabetical" },
+    { value: "most-used" as SortOption, label: "Most Used" },
+  ];
+
+  const currentLabel = options.find(opt => opt.value === value)?.label || "Newest First";
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleSelect = (optionValue: SortOption) => {
+    onChange(optionValue);
+    setIsOpen(false);
+  };
+
+  return (
+    <div className="sort-container" ref={dropdownRef}>
+      <button
+        className="sort-button"
+        onClick={() => setIsOpen(!isOpen)}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+      >
+        <span className="sort-button-text">{currentLabel}</span>
+        <svg
+          className={`sort-button-icon ${isOpen ? 'rotated' : ''}`}
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+        >
+          <path d="m6 9 6 6 6-6"/>
+        </svg>
+      </button>
+
+      {isOpen && (
+        <div className="sort-dropdown-menu">
+          {options.map((option, index) => (
+            <React.Fragment key={option.value}>
+              <button
+                className={`sort-option ${value === option.value ? 'selected' : ''}`}
+                onClick={() => handleSelect(option.value)}
+                role="option"
+                aria-selected={value === option.value}
+              >
+                {option.label}
+              </button>
+              {index < options.length - 1 && <div className="sort-separator" />}
+            </React.Fragment>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
 const App: React.FC = () => {
   const [responses, setResponses] = useState<Response[]>([]);
@@ -247,20 +324,8 @@ const App: React.FC = () => {
               <p className="brand-subtitle">{responses.length} {responses.length === 1 ? 'response' : 'responses'}</p>
             </div>
           </div>
+          
           <div className="header-actions">
-            <div className="sort-container">
-              <select
-                className="sort-select"
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as SortOption)}
-                aria-label="Sort responses"
-              >
-                <option value="date-desc">Newest First</option>
-                <option value="date-asc">Oldest First</option>
-                <option value="alphabetical">Alphabetical</option>
-                <option value="most-used">Most Used</option>
-              </select>
-            </div>
             <button className="theme-toggle" onClick={() => setIsDarkMode(!isDarkMode)} aria-label="Toggle dark mode">
               {isDarkMode ? (
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -284,25 +349,33 @@ const App: React.FC = () => {
       </header>
 
       <div className="popup-body">
-        <div className="search-container">
-          <svg className="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="11" cy="11" r="8"/>
-            <path d="m21 21-4.35-4.35"/>
-          </svg>
-          <input
-            className="search-input"
-            type="text"
-            placeholder="Search by title, content, or tags..."
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            aria-label="Search responses"
-          />
-          {query && (
-            <button className="search-clear" onClick={() => setQuery("")} aria-label="Clear search">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M18 6L6 18M6 6l12 12"/>
-              </svg>
-            </button>
+        <div className="search-sort-container">
+          <div className="search-container">
+            <svg className="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="11" cy="11" r="8"/>
+              <path d="m21 21-4.35-4.35"/>
+            </svg>
+            <input
+              className="search-input"
+              type="text"
+              placeholder="Search by title, content, or tags..."
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              aria-label="Search responses"
+            />
+            {query && (
+              <button className="search-clear" onClick={() => setQuery("")} aria-label="Clear search">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M18 6L6 18M6 6l12 12"/>
+                </svg>
+              </button>
+            )}
+          </div>
+
+          {!showModal && (
+            <div className="sort-container">
+              <SortDropdown value={sortBy} onChange={setSortBy} />
+            </div>
           )}
         </div>
 
