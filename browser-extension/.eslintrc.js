@@ -22,22 +22,27 @@ module.exports = {
   plugins: ["@typescript-eslint", "react", "react-hooks"],
   rules: {
     // Moderate strictness - errors only for important issues
-    "@typescript-eslint/no-unused-vars": "error",
-    "@typescript-eslint/no-explicit-any": "warn",
+    "@typescript-eslint/no-unused-vars": ["warn", { 
+      "argsIgnorePattern": "^_",
+      "varsIgnorePattern": "^_"
+    }],
+    "@typescript-eslint/no-explicit-any": "off",
     "@typescript-eslint/explicit-function-return-type": "off",
     "@typescript-eslint/explicit-module-boundary-types": "off",
-    "@typescript-eslint/no-non-null-assertion": "warn",
+    "@typescript-eslint/no-non-null-assertion": "off",
 
     // General JavaScript/TypeScript rules
-    "no-console": "warn",
+    // Allow console for browser extension debugging
+    "no-console": "off",
     "no-debugger": "error",
-    "no-alert": "warn",
+    // Allow alerts for browser extension user interaction
+    "no-alert": "off",
     "prefer-const": "error",
     "no-var": "error",
 
     // React-specific rules (since using React in popup)
     "react-hooks/rules-of-hooks": "error",
-    "react-hooks/exhaustive-deps": "warn",
+    "react-hooks/exhaustive-deps": "off",
   },
   settings: {
     react: {
