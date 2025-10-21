@@ -116,8 +116,8 @@ body {
 }
 
 .nav-logo {
-  width: 2rem;
-  height: 2rem;
+  width: 4rem; /*2rem*/
+  height: 4rem; /*2rem*/
   transition: transform var(--transition-fast);
 }
 
@@ -993,8 +993,8 @@ body {
 }
 
 .footer-logo {
-  width: 1.5rem;
-  height: 1.5rem;
+  width: 2.5rem; /*1.5rem*/
+  height: 2.5rem; /*1.5rem*/
 }
 
 .footer-links {
@@ -1051,8 +1051,8 @@ body {
 }
 
 .brand-logo {
-  width: 2rem;
-  height: 2rem;
+  width: 4rem; /*2rem*/
+  height: 4rem; /*2rem*/
   border-radius: 6px;
   box-shadow: var(--shadow-sm);
 }
