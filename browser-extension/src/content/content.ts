@@ -797,7 +797,8 @@ function handleTextSelection() {
 }
 
 // Show dialog to save selected text as response
-async function showSaveDialog(text: string) {
+// Note: Currently unused but kept for future feature implementation
+async function _showSaveDialog(text: string) {
   // Create modal overlay
   const modal = document.createElement("div");
   modal.className = "linkedin-helper-modal";
@@ -951,7 +952,7 @@ async function saveResponseDirectly(text: string) {
   const timestamp = new Date().toISOString();
 
   // Detect platform and set tags/category accordingly
-  const isLinkedIn = window.location.hostname.includes("linkedin");
+  const _isLinkedIn = window.location.hostname.includes("linkedin");
   const isTwitter =
     window.location.hostname.includes("twitter") ||
     window.location.hostname.includes("x.com");
