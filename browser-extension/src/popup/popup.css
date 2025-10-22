@@ -223,6 +223,9 @@ body {
 .search-container {
   position: relative;
   margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .search-icon {
@@ -232,11 +235,12 @@ body {
   transform: translateY(-50%);
   color: var(--text-tertiary);
   pointer-events: none;
+  z-index: 1;
 }
 
 .search-input {
-  width: 100%;
-  padding: 10px 36px 10px 40px;
+  flex: 1;
+  padding: 10px 12px 10px 40px;
   background: var(--bg-secondary);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
@@ -244,6 +248,99 @@ body {
   color: var(--text-primary);
   transition: var(--transition);
   backdrop-filter: blur(8px);
+}
+
+/* Sort Button Wrapper - Professional Inline Design */
+.sort-button-wrapper {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.sort-button {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: var(--transition);
+  color: var(--text-secondary);
+  position: relative;
+  pointer-events: none;
+}
+
+.sort-button svg {
+  transition: var(--transition);
+}
+
+.sort-button-wrapper:hover .sort-button {
+  background: var(--accent-light);
+  border-color: var(--accent);
+  color: var(--accent);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+}
+
+.sort-button-wrapper:hover .sort-button svg {
+  transform: scale(1.1);
+}
+
+.sort-select {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 1;
+}
+
+/* Beautiful Custom Dropdown Styling */
+.sort-select option {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  padding: 12px 16px;
+  font-weight: 500;
+  font-size: 14px;
+  line-height: 1.5;
+  border-radius: var(--radius-sm);
+  margin: 2px 0;
+  transition: var(--transition);
+}
+
+.sort-select option:hover {
+  background: var(--accent-light);
+  color: var(--accent);
+}
+
+.sort-select option:checked {
+  background: var(--accent);
+  color: white;
+  font-weight: 600;
+}
+
+/* Enhanced dropdown appearance for browsers that support it */
+.sort-select:not([multiple]) {
+  background: var(--bg-secondary);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.sort-button-wrapper:has(.sort-select:focus) .sort-button {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: white;
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.12), 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.sort-button-wrapper:has(.sort-select:focus) .sort-button svg {
+  transform: rotate(180deg);
 }
 
 .search-input:focus {
@@ -259,7 +356,7 @@ body {
 
 .search-clear {
   position: absolute;
-  right: 10px;
+  right: 70px;
   top: 50%;
   transform: translateY(-50%);
   background: transparent;
@@ -272,11 +369,42 @@ body {
   justify-content: center;
   border-radius: 4px;
   transition: var(--transition);
+  z-index: 1;
 }
 
 .search-clear:hover {
   background: var(--bg-primary);
   color: var(--text-secondary);
+}
+
+/* Custom Order Hint */
+.custom-order-hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: linear-gradient(135deg, var(--accent-light) 0%, rgba(59, 130, 246, 0.05) 100%);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: var(--radius-sm);
+  margin-bottom: 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--accent);
+  animation: slideInFromTop 0.3s ease-out;
+}
+
+.custom-order-hint svg {
+  flex-shrink: 0;
+  animation: bounce 2s ease-in-out infinite;
+}
+
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(3px);
+  }
 }
 
 /* Loading State */
@@ -343,6 +471,8 @@ body {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  position: relative;
+  padding-left: 6px; /* Make room for drag handles */
 }
 
 /* Response Card */
@@ -356,6 +486,67 @@ body {
   -webkit-backdrop-filter: blur(10px);
   box-shadow: var(--shadow-sm);
   animation: slideIn 0.3s ease-out;
+  position: relative;
+}
+
+/* Drag handle for custom ordering */
+.response-card.draggable {
+  cursor: move;
+  cursor: grab;
+}
+
+.response-card.draggable:active {
+  cursor: grabbing;
+}
+
+.response-card.dragging {
+  opacity: 0.5;
+  transform: scale(0.98);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+
+.response-card.drag-over {
+  border-color: var(--accent);
+  border-style: dashed;
+  background: var(--accent-light);
+}
+
+.drag-handle {
+  position: absolute;
+  left: -8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 24px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent-light);
+  border: 2px solid var(--accent);
+  border-radius: 8px;
+  opacity: 0;
+  transition: var(--transition);
+  cursor: grab;
+  color: var(--accent);
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+  z-index: 10;
+}
+
+.response-card.draggable:hover .drag-handle {
+  opacity: 1;
+  left: -14px;
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+  background: var(--accent);
+  color: white;
+  transform: translateY(-50%) scale(1.1);
+}
+
+.drag-handle svg {
+  width: 14px;
+  height: 14px;
 }
 
 @keyframes slideIn {
@@ -398,12 +589,50 @@ body {
   margin-bottom: 10px;
 }
 
+.card-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
 .card-title {
   font-size: 15px;
   font-weight: 600;
   color: var(--text-primary);
   letter-spacing: -0.2px;
   line-height: 1.4;
+}
+
+.usage-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  padding: 4px 8px;
+  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+  color: white;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  box-shadow: 0 2px 6px rgba(251, 191, 36, 0.3);
+  animation: popIn 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+@keyframes popIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+[data-theme="dark"] .usage-badge {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  box-shadow: 0 2px 6px rgba(245, 158, 11, 0.4);
 }
 
 .card-tags {

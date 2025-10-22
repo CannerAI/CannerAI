@@ -8,6 +8,8 @@ export interface Response {
   content: string;
   tags?: string[] | string;
   created_at?: string;
+  usage_count?: number; // Track how many times the response has been used
+  custom_order?: number; // For custom sorting order
 }
 
 // Try backend first, fall back to Chrome storage
@@ -30,7 +32,9 @@ export async function getResponses(): Promise<Response[]> {
     chrome.storage.local.get(["responses"], (result) => {
       const responses = (result.responses || []).map((r: any) => ({
         ...r,
-        tags: Array.isArray(r.tags) ? r.tags : (r.tags ? [r.tags] : [])
+        tags: Array.isArray(r.tags) ? r.tags : (r.tags ? [r.tags] : []),
+        usage_count: r.usage_count || 0,
+        custom_order: r.custom_order !== undefined ? r.custom_order : Date.now()
       }));
       resolve(responses);
     });
@@ -64,6 +68,8 @@ export async function saveResponse(response: Response): Promise<Response> {
     ...response,
     id,
     created_at: new Date().toISOString(),
+    usage_count: 0, // Initialize usage count
+    custom_order: Date.now(), // Initialize custom order
     tags: Array.isArray(response.tags) ? response.tags : (response.tags ? [response.tags] : [])
   };
 
@@ -102,6 +108,24 @@ export async function deleteResponse(id: string): Promise<void> {
       const responses = result.responses || [];
       const filtered = responses.filter((r: Response) => r.id !== id);
       chrome.storage.local.set({ responses: filtered }, () => {
+        resolve();
+      });
+    });
+  });
+}
+
+// Update usage count for a response
+export async function incrementUsageCount(id: string): Promise<void> {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(["responses"], (result) => {
+      const responses = result.responses || [];
+      const updated = responses.map((r: Response) => {
+        if (r.id === id) {
+          return { ...r, usage_count: (r.usage_count || 0) + 1 };
+        }
+        return r;
+      });
+      chrome.storage.local.set({ responses: updated }, () => {
         resolve();
       });
     });

@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { getResponses, saveResponse, deleteResponse, Response } from "../utils/api";
+import { getResponses, saveResponse, deleteResponse, incrementUsageCount, Response } from "../utils/api";
+
+// Sorting options
+type SortOption = "date" | "alphabetical" | "mostUsed" | "custom";
 
 const App: React.FC = () => {
   const [responses, setResponses] = useState<Response[]>([]);
@@ -9,14 +12,20 @@ const App: React.FC = () => {
   const [notification, setNotification] = useState<string>("");
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
+  const [sortBy, setSortBy] = useState<SortOption>("date"); // Default sort by date
 
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [tags, setTags] = useState("");
+  
+  // Drag and drop state for custom ordering
+  const [draggedItem, setDraggedItem] = useState<Response | null>(null);
+  const [dragOverItem, setDragOverItem] = useState<Response | null>(null);
 
   useEffect(() => {
     load();
     loadTheme();
+    loadSortPreference(); // Load saved sort preference
   }, []);
 
   useEffect(() => {
@@ -37,6 +46,12 @@ const App: React.FC = () => {
     setIsDarkMode(theme === 'dark');
   }
 
+  async function loadSortPreference() {
+    const result = await chrome.storage.sync.get(['sortBy']);
+    const savedSort = result.sortBy || 'date';
+    setSortBy(savedSort);
+  }
+
   async function load() {
     setLoading(true);
     try {
@@ -49,6 +64,42 @@ const App: React.FC = () => {
     }
   }
 
+  // Sort responses based on selected option
+  const sortResponses = (responses: Response[]): Response[] => {
+    const sorted = [...responses];
+    
+    switch (sortBy) {
+      case "date":
+        // Sort by creation date (newest first)
+        return sorted.sort((a, b) => {
+          const dateA = new Date(a.created_at || 0).getTime();
+          const dateB = new Date(b.created_at || 0).getTime();
+          return dateB - dateA;
+        });
+      
+      case "alphabetical":
+        // Sort alphabetically by title (A-Z)
+        return sorted.sort((a, b) => 
+          a.title.toLowerCase().localeCompare(b.title.toLowerCase())
+        );
+      
+      case "mostUsed":
+        // Sort by usage count (most used first)
+        return sorted.sort((a, b) => 
+          (b.usage_count || 0) - (a.usage_count || 0)
+        );
+      
+      case "custom":
+        // Sort by custom order
+        return sorted.sort((a, b) => 
+          (a.custom_order || 0) - (b.custom_order || 0)
+        );
+      
+      default:
+        return sorted;
+    }
+  };
+
   const filtered = responses.filter((r) => {
     if (!query.trim()) return true;
     const q = query.toLowerCase();
@@ -58,6 +109,15 @@ const App: React.FC = () => {
       (Array.isArray(r.tags) ? r.tags.join(" ").toLowerCase() : String(r.tags || "")).includes(q)
     );
   });
+
+  // Apply sorting to filtered results
+  const sortedAndFiltered = sortResponses(filtered);
+
+  // Handle sort option change
+  const handleSortChange = (newSort: SortOption) => {
+    setSortBy(newSort);
+    chrome.storage.sync.set({ sortBy: newSort }); // Persist preference
+  };
 
   async function handleSave() {
     if (!title.trim() || !content.trim()) {
@@ -116,7 +176,7 @@ const App: React.FC = () => {
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       if (tab?.id) {
-        chrome.tabs.sendMessage(tab.id, { action: "insertResponse", content: text }, (res) => {
+        chrome.tabs.sendMessage(tab.id, { action: "insertResponse", content: text }, async (res) => {
           if (res?.success) {
             setNotification("✓ Inserted successfully");
             setTimeout(() => window.close(), 500);
@@ -131,11 +191,104 @@ const App: React.FC = () => {
     }
   }
 
-  function handleCopy(text: string) {
+  async function handleCopy(text: string) {
     navigator.clipboard.writeText(text).then(() => {
       setNotification("✓ Copied to clipboard");
     });
   }
+
+  // Increment usage count when inserting or copying
+  async function handleInsertWithTracking(id: string | undefined, text: string) {
+    if (id) {
+      await incrementUsageCount(id);
+      await load(); // Reload to update usage counts
+    }
+    await handleInsert(text);
+  }
+
+  async function handleCopyWithTracking(id: string | undefined, text: string) {
+    if (id) {
+      await incrementUsageCount(id);
+      await load(); // Reload to update usage counts
+    }
+    await handleCopy(text);
+  }
+
+  // Drag and drop handlers for custom ordering
+  const handleDragStart = (e: React.DragEvent, response: Response) => {
+    setDraggedItem(response);
+    e.currentTarget.classList.add('dragging');
+    if (e.dataTransfer) {
+      e.dataTransfer.effectAllowed = 'move';
+    }
+  };
+
+  const handleDragEnd = (e: React.DragEvent) => {
+    e.currentTarget.classList.remove('dragging');
+    setDraggedItem(null);
+    setDragOverItem(null);
+    
+    // Remove drag-over class from all cards
+    document.querySelectorAll('.response-card').forEach(card => {
+      card.classList.remove('drag-over');
+    });
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    if (e.dataTransfer) {
+      e.dataTransfer.dropEffect = 'move';
+    }
+  };
+
+  const handleDragEnter = (e: React.DragEvent, response: Response) => {
+    e.preventDefault();
+    if (draggedItem && draggedItem.id !== response.id) {
+      setDragOverItem(response);
+      e.currentTarget.classList.add('drag-over');
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const x = e.clientX;
+    const y = e.clientY;
+    
+    // Only remove class if actually leaving the element
+    if (x < rect.left || x >= rect.right || y < rect.top || y >= rect.bottom) {
+      e.currentTarget.classList.remove('drag-over');
+    }
+  };
+
+  const handleDrop = async (e: React.DragEvent, targetResponse: Response) => {
+    e.preventDefault();
+    e.currentTarget.classList.remove('drag-over');
+    
+    if (!draggedItem || draggedItem.id === targetResponse.id) {
+      return;
+    }
+
+    // Reorder the responses array
+    const newResponses = [...responses];
+    const draggedIndex = newResponses.findIndex(r => r.id === draggedItem.id);
+    const targetIndex = newResponses.findIndex(r => r.id === targetResponse.id);
+    
+    // Remove dragged item and insert at new position
+    newResponses.splice(draggedIndex, 1);
+    newResponses.splice(targetIndex, 0, draggedItem);
+    
+    // Update custom_order for all items
+    const updatedResponses = newResponses.map((r, index) => ({
+      ...r,
+      custom_order: index
+    }));
+    
+    // Save to Chrome storage
+    await chrome.storage.local.set({ responses: updatedResponses });
+    setResponses(updatedResponses);
+    setDraggedItem(null);
+    setDragOverItem(null);
+  };
 
   return (
     <div className="popup-container">
@@ -202,7 +355,35 @@ const App: React.FC = () => {
               </svg>
             </button>
           )}
+          <div className="sort-button-wrapper">
+            <select 
+              id="sort-select"
+              className="sort-select" 
+              value={sortBy} 
+              onChange={(e) => handleSortChange(e.target.value as SortOption)}
+              aria-label="Sort messages by"
+            >
+              <option value="date">Date Created</option>
+              <option value="alphabetical">Alphabetical</option>
+              <option value="mostUsed">Most Used</option>
+              <option value="custom">Custom Order</option>
+            </select>
+            <button className="sort-button" aria-label="Sort options">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <path d="M3 6h18M7 12h10M11 18h2"/>
+              </svg>
+            </button>
+          </div>
         </div>
+
+        {sortBy === 'custom' && sortedAndFiltered.length > 0 && (
+          <div className="custom-order-hint">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M12 8v8m0 0l-3-3m3 3l3-3"/>
+            </svg>
+            <span>Drag and drop messages to reorder them</span>
+          </div>
+        )}
 
         {loading ? (
           <div className="responses-list">
@@ -248,28 +429,57 @@ const App: React.FC = () => {
           </div>
         ) : (
           <div className="responses-list">
-            {filtered.map((r) => (
-              <div key={r.id} className={`response-card ${deletingIds.has(r.id!) ? 'sliding-out' : ''}`}>
+            {sortedAndFiltered.map((r) => (
+              <div 
+                key={r.id} 
+                className={`response-card ${deletingIds.has(r.id!) ? 'sliding-out' : ''} ${sortBy === 'custom' ? 'draggable' : ''}`}
+                draggable={sortBy === 'custom'}
+                onDragStart={(e) => handleDragStart(e, r)}
+                onDragEnd={handleDragEnd}
+                onDragOver={handleDragOver}
+                onDragEnter={(e) => handleDragEnter(e, r)}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => handleDrop(e, r)}
+              >
+                {sortBy === 'custom' && (
+                  <div className="drag-handle" title="Drag to reorder">
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                      <circle cx="9" cy="5" r="1.5"/>
+                      <circle cx="9" cy="12" r="1.5"/>
+                      <circle cx="9" cy="19" r="1.5"/>
+                      <circle cx="15" cy="5" r="1.5"/>
+                      <circle cx="15" cy="12" r="1.5"/>
+                      <circle cx="15" cy="19" r="1.5"/>
+                    </svg>
+                  </div>
+                )}
                 <div className="card-header">
                   <h3 className="card-title">{r.title}</h3>
-                  {Array.isArray(r.tags) && r.tags.length > 0 && (
-                    <div className="card-tags">
-                      {r.tags.slice(0, 2).map((t: string, i: number) => (
-                        <span key={i} className="tag">{t}</span>
-                      ))}
-                      {r.tags.length > 2 && <span className="tag-more">+{r.tags.length - 2}</span>}
-                    </div>
-                  )}
+                  <div className="card-header-right">
+                    {sortBy === "mostUsed" && r.usage_count !== undefined && r.usage_count > 0 && (
+                      <span className="usage-badge" title={`Used ${r.usage_count} time${r.usage_count > 1 ? 's' : ''}`}>
+                        {r.usage_count}×
+                      </span>
+                    )}
+                    {Array.isArray(r.tags) && r.tags.length > 0 && (
+                      <div className="card-tags">
+                        {r.tags.slice(0, 2).map((t: string, i: number) => (
+                          <span key={i} className="tag">{t}</span>
+                        ))}
+                        {r.tags.length > 2 && <span className="tag-more">+{r.tags.length - 2}</span>}
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <p className="card-content">{r.content}</p>
                 <div className="card-actions">
-                  <button className="btn-action btn-insert" onClick={() => handleInsert(r.content)} aria-label="Insert response">
+                  <button className="btn-action btn-insert" onClick={() => handleInsertWithTracking(r.id, r.content)} aria-label="Insert response">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>
                     </svg>
                     Insert
                   </button>
-                  <button className="btn-action btn-copy" onClick={() => handleCopy(r.content)} aria-label="Copy response">
+                  <button className="btn-action btn-copy" onClick={() => handleCopyWithTracking(r.id, r.content)} aria-label="Copy response">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
                       <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
