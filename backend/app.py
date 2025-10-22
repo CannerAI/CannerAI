@@ -1,9 +1,3 @@
-from flask import Flask, request, jsonify, Response
-from flask_cors import CORS
-from prometheus_flask_exporter import PrometheusMetrics
-from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
-from flasgger import Swagger
-import sqlite3
 import json
 import logging
 import os
@@ -13,8 +7,11 @@ import uuid
 from datetime import datetime
 from typing import Any, Dict, Union
 
-from flask import Flask, jsonify, request
+from flasgger import Swagger
+from flask import Flask, Response, jsonify, request
 from flask_cors import CORS
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
+from prometheus_flask_exporter import PrometheusMetrics
 
 # Try to import PostgreSQL driver
 try:
