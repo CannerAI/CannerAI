@@ -7,6 +7,21 @@ const CONFIG = {
   BUTTON_COLOR: "#0a66c2", // LinkedIn blue
 };
 
+// helps to track the last focused input
+let lastFocusedInput: HTMLElement | null = null;
+
+// this function track focused inputs
+function trackFocusedInputs() {
+  document.addEventListener('focusin', (e) => {
+    const target = e.target as HTMLElement;
+    if (isValidInputElement(target)) {
+      lastFocusedInput = target;
+      console.log("Canner: Tracked focused input", target);
+    }
+  }, true);
+}
+
+// Track injected elements to avoid duplicates
 const injectedElements = new Set<string>();
 const suggestionManagers: Record<string, InlineSuggestionManager> = {} as any;
 
@@ -457,6 +472,8 @@ async function fetchLocalSuggestions(prefix: string): Promise<any[]> {
 function init() {
   console.log("Social Helper: Initializing for all platforms...");
 
+  trackFocusedInputs(); // add to track focused input
+
   // Add pen buttons to all input boxes
   addMessageHelpers();
 
@@ -604,8 +621,7 @@ function addMessageHelpers() {
 
     injectedElements.add(box.id);
     console.log(
-      `Social Helper: Pen button created and positioned for element ${
-        index + 1
+      `Social Helper: Pen button created and positioned for element ${index + 1
       }`
     );
   });
@@ -869,25 +885,24 @@ async function showResponseMenu(targetBox: HTMLElement, button: HTMLElement) {
         </div>
         <div class="lh-menu-items">
           ${responses
-            .map(
-              (r) => `
+          .map(
+            (r) => `
             <div class="lh-menu-item" data-id="${r.id}">
               <div class="lh-item-title">${r.title}</div>
               <div class="lh-item-preview">${r.content.substring(
-                0,
-                60
-              )}...</div>
-              ${
-                r.tags
-                  ? `<div class="lh-item-tags">${r.tags
-                      .map((t: string) => `<span class="lh-tag">${t}</span>`)
-                      .join("")}</div>`
-                  : ""
+              0,
+              60
+            )}...</div>
+              ${r.tags
+                ? `<div class="lh-item-tags">${r.tags
+                  .map((t: string) => `<span class="lh-tag">${t}</span>`)
+                  .join("")}</div>`
+                : ""
               }
             </div>
           `
-            )
-            .join("")}
+          )
+          .join("")}
         </div>
         <div class="lh-menu-footer">
           <button class="lh-btn-create">➕ New Response</button>
@@ -1174,19 +1189,19 @@ let saveButton: HTMLElement | null = null;
 
 function addTextSelectionHandler() {
   console.log("Canner: Adding text selection handlers");
-  
+
   document.addEventListener("mouseup", () => {
     setTimeout(handleTextSelection, 50);
   });
-  
+
   document.addEventListener("keyup", () => {
     setTimeout(handleTextSelection, 50);
   });
-  
+
   document.addEventListener("selectionchange", () => {
     setTimeout(handleTextSelection, 100);
   });
-  
+
   document.addEventListener("mousedown", (e) => {
     if (saveButton && !saveButton.contains(e.target as Node)) {
       if (saveButton) {
@@ -1242,9 +1257,9 @@ function handleTextSelection() {
   const btn = saveButton.querySelector(
     ".lh-save-selection-btn"
   ) as HTMLButtonElement;
-  
+
   const textToSave = selectedText;
-  
+
   const clickHandler = async (e: Event) => {
     e.preventDefault();
     e.stopPropagation();
@@ -1272,7 +1287,7 @@ function handleTextSelection() {
       selection?.removeAllRanges();
     }, 100);
   };
-  
+
   btn.addEventListener("click", clickHandler, { capture: true, once: true });
   btn.addEventListener("mousedown", clickHandler, { capture: true, once: true });
   btn.addEventListener("touchend", clickHandler, { capture: true, once: true });
@@ -1420,7 +1435,7 @@ function showToast(message: string) {
 // Save response directly without dialog
 async function saveResponseDirectly(text: string) {
   console.log("Canner: saveResponseDirectly called with text:", text);
-  
+
   if (!text || text.trim().length === 0) {
     console.error("Canner: No text provided to save");
     showToast("❌ No text to save");
@@ -1479,14 +1494,14 @@ async function saveResponseDirectly(text: string) {
     console.log("Canner: Saving to Chrome local storage");
     const result = await chrome.storage.local.get(["responses"]);
     const responses = result.responses || [];
-    
+
     const newResponse = {
       id: Date.now().toString(),
       ...responseData,
       tags: Array.isArray(responseData.tags) ? responseData.tags : [responseData.tags].filter(Boolean),
       created_at: timestamp,
     };
-    
+
     responses.push(newResponse);
     await chrome.storage.local.set({ responses });
     console.log("Canner: Saved to local storage successfully", newResponse);
@@ -1536,19 +1551,70 @@ if (document.readyState === "loading") {
   }
 }
 
+// Helper function to check if element is valid input
+function isValidInputElement(element: HTMLElement | null): boolean {
+  if (!element) return false;
+
+  const isContentEditable = element.getAttribute('contenteditable') === 'true';
+  const tagName = element.tagName?.toLowerCase();
+  const isInput = tagName === 'input' || tagName === 'textarea';
+
+  return isContentEditable || isInput;
+}
+
 // Listen for messages from popup or background script
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (message.action === "insertResponse") {
-    const activeElement = document.activeElement as HTMLElement;
-    if (
-      activeElement &&
-      activeElement.getAttribute("contenteditable") === "true"
-    ) {
-      insertText(activeElement, message.content);
-      sendResponse({ success: true });
-    } else {
-      sendResponse({ success: false, error: "No active input box" });
-    }
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  // Handle ping to check if script is loaded
+  if (message.action === "ping") {
+    sendResponse({ pong: true });
+    return true;
   }
+
+  if (message.action === "insertResponse") {
+    console.log("Canner: Received insertResponse message", message);
+
+    // Try to get the target element
+    let targetElement = lastFocusedInput || document.activeElement as HTMLElement | null;
+
+    // If no focused element found, search for visible input elements
+    if (!targetElement || !isValidInputElement(targetElement)) {
+      const possibleInputs = [
+        ...Array.from(document.querySelectorAll('[contenteditable="true"]')),
+        ...Array.from(document.querySelectorAll('textarea')),
+        ...Array.from(document.querySelectorAll('input[type="text"]'))
+      ].filter(el => {
+        const rect = (el as HTMLElement).getBoundingClientRect();
+        const style = window.getComputedStyle(el as HTMLElement);
+        return rect.width > 0 && rect.height > 0 &&
+          style.display !== 'none' &&
+          style.visibility !== 'hidden';
+      });
+
+      targetElement = possibleInputs[0] as HTMLElement || null;
+    }
+
+    if (!targetElement || !isValidInputElement(targetElement)) {
+      console.error("Canner: No valid input element found");
+      sendResponse({
+        success: false,
+        error: "Please click in an input field first"
+      });
+      return true;
+    }
+
+    try {
+      // Focus the element before inserting
+      targetElement.focus();
+      insertText(targetElement, message.content);
+      console.log("Canner: Text inserted successfully");
+      sendResponse({ success: true });
+    } catch (error) {
+      console.error("Canner: Error inserting text", error);
+      sendResponse({ success: false, error: "Failed to insert text" });
+    }
+
+    return true;
+  }
+
   return true;
 });
