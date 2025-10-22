@@ -423,21 +423,27 @@ def health_check():
             }
         )
     except Exception as e:
-        return jsonify({
-            'status': 'unhealthy',
-            'timestamp': datetime.now().isoformat(),
-            'database': 'PostgreSQL' if is_postgres() else 'SQLite',
-            'database_connected': False,
-            'error': str(e)
-        }), 503
+        return (
+            jsonify(
+                {
+                    "status": "unhealthy",
+                    "timestamp": datetime.now().isoformat(),
+                    "database": "PostgreSQL" if is_postgres() else "SQLite",
+                    "database_connected": False,
+                    "error": str(e),
+                }
+            ),
+            503,
+        )
 
-@app.route('/metrics')
+
+@app.route("/metrics")
 def metrics_endpoint():
     """Explicit Prometheus metrics endpoint."""
     return Response(generate_latest(), mimetype=CONTENT_TYPE_LATEST)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # Configure logging
     logging.basicConfig(
         level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
