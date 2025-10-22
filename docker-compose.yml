@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   # PostgreSQL Database
@@ -35,7 +35,7 @@ services:
       - DATABASE_URL=postgresql://developer:devpassword@postgres:5432/canner_dev
       - FLASK_ENV=development
       - FLASK_DEBUG=1
-      - FLASK_APP=app.py  
+      - FLASK_APP=app.py
     ports:
       - "5000:5000"
     volumes:
