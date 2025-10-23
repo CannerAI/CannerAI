@@ -1,11 +1,12 @@
 """
 Database models and initialization for Response Saver
 """
-import sqlite3
+
 import json
 from typing import List, Dict, Any, Optional
+import sqlite3
 
-DATABASE = 'responses.db'
+DATABASE = "responses.db"
 
 
 class Response:
@@ -21,7 +22,7 @@ class Response:
         self.profile_id = profile_id
         self.created_at = created_at
         self.updated_at = updated_at
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert response to dictionary."""
         return {
@@ -33,9 +34,9 @@ class Response:
             'created_at': self.created_at,
             'updated_at': self.updated_at
         }
-    
+
     @staticmethod
-    def from_db_row(row: sqlite3.Row) -> 'Response':
+    def from_db_row(row: sqlite3.Row) -> "Response":
         """Create Response from database row."""
         return Response(
             id=row['id'],

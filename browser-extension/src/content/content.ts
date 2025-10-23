@@ -1,21 +1,478 @@
-// Canner Content Script
-// Injects helper buttons and features into LinkedIn pages
-
+// Canner content script — injects helper UI into social sites
 console.log("Canner: Content script loaded");
 
-// Configuration
 const CONFIG = {
   API_URL: "http://localhost:5000",
   BUTTON_ICON: "💬",
   BUTTON_COLOR: "#0a66c2", // LinkedIn blue
 };
 
+// helps to track the last focused input
+let lastFocusedInput: HTMLElement | null = null;
+
+// this function track focused inputs
+function trackFocusedInputs() {
+  document.addEventListener('focusin', (e) => {
+    const target = e.target as HTMLElement;
+    if (isValidInputElement(target)) {
+      lastFocusedInput = target;
+      console.log("Canner: Tracked focused input", target);
+    }
+  }, true);
+}
+
 // Track injected elements to avoid duplicates
 const injectedElements = new Set<string>();
+const suggestionManagers: Record<string, InlineSuggestionManager> = {} as any;
+
+// Simple Inline Suggestion Manager
+class InlineSuggestionManager {
+  element: HTMLElement;
+  ghostElement: HTMLElement | null = null;
+  currentSuggestion: any | null = null;
+  isComposing: boolean = false;
+  suppressedUntil: number = 0;
+
+  // Event handlers
+  private inputHandler: (e: Event) => void;
+  private keydownHandler: (e: KeyboardEvent) => void;
+  private blurHandler: () => void;
+  private compositionStartHandler: () => void;
+  private compositionEndHandler: () => void;
+
+  constructor(element: HTMLElement) {
+    this.element = element;
+
+    // Bind event handlers
+    this.inputHandler = this.handleInput.bind(this);
+    this.keydownHandler = this.handleKeydown.bind(this);
+    this.blurHandler = this.clearSuggestion.bind(this);
+    this.compositionStartHandler = () => { this.isComposing = true; };
+    this.compositionEndHandler = () => { this.isComposing = false; };
+
+    // Attach event listeners
+    this.element.addEventListener('input', this.inputHandler);
+    this.element.addEventListener('keydown', this.keydownHandler);
+    this.element.addEventListener('blur', this.blurHandler);
+    this.element.addEventListener('compositionstart', this.compositionStartHandler);
+    this.element.addEventListener('compositionend', this.compositionEndHandler);
+  }
+
+  destroy() {
+    this.clearSuggestion();
+    this.element.removeEventListener('input', this.inputHandler);
+    this.element.removeEventListener('keydown', this.keydownHandler);
+    this.element.removeEventListener('blur', this.blurHandler);
+    this.element.removeEventListener('compositionstart', this.compositionStartHandler);
+    this.element.removeEventListener('compositionend', this.compositionEndHandler);
+  }
+
+  private async handleInput(e: Event) {
+    // Skip if suppressed
+    if (Date.now() < this.suppressedUntil) {
+      this.clearSuggestion();
+      return;
+    }
+
+    // Skip if composing (IME input)
+    if (this.isComposing) {
+      return;
+    }
+
+    const currentText = this.getCurrentText();
+
+    // Clear suggestion if text is too short or empty (fixes Twitter backspace issue)
+    if (!currentText || currentText.length < 2) {
+      this.clearSuggestion();
+      return;
+    }
+
+    // Additional check for empty contenteditable elements
+    if (this.element.getAttribute('contenteditable') === 'true') {
+      const textContent = this.element.textContent?.trim() || '';
+      if (textContent.length === 0) {
+        this.clearSuggestion();
+        return;
+      }
+    }
+
+    try {
+      const suggestions = await this.fetchSuggestions(currentText);
+      if (suggestions.length === 0) {
+        this.clearSuggestion();
+        return;
+      }
+
+      // Find suggestions that start with the current text
+      const matches = suggestions.filter(s => {
+        const content = (s.content || s.title || "").toLowerCase();
+        return content.startsWith(currentText.toLowerCase());
+      });
+
+      if (matches.length === 0) {
+        this.clearSuggestion();
+        return;
+      }
+
+      // Use the first match
+      const suggestion = matches[0];
+      this.showSuggestion(suggestion, currentText);
+    } catch (error) {
+      console.error('Error fetching suggestions:', error);
+      this.clearSuggestion();
+    }
+  }
+
+  private handleKeydown(e: KeyboardEvent) {
+    if (e.key === 'Tab' && this.currentSuggestion) {
+      e.preventDefault();
+      e.stopPropagation();
+      this.acceptSuggestion();
+    } else if (e.key === 'Escape' && this.currentSuggestion) {
+      e.preventDefault();
+      e.stopPropagation();
+      this.clearSuggestion();
+    } else if (e.key === 'Backspace' || e.key === 'Delete') {
+      // Clear suggestion on delete keys (fixes Twitter backspace issue)
+      setTimeout(() => {
+        const currentText = this.getCurrentText();
+        if (!currentText || currentText.length < 2) {
+          this.clearSuggestion();
+        }
+      }, 10);
+    }
+  }
+
+  private getCurrentText(): string {
+    if (this.element.getAttribute('contenteditable') === 'true') {
+      const selection = window.getSelection();
+      if (!selection || selection.rangeCount === 0) return '';
+
+      const range = selection.getRangeAt(0);
+      const tempRange = range.cloneRange();
+      tempRange.selectNodeContents(this.element);
+      tempRange.setEnd(range.endContainer, range.endOffset);
+
+      const text = tempRange.cloneContents().textContent || '';
+      // Get the last word
+      const words = text.trim().split(/\s+/);
+      return words[words.length - 1] || '';
+    } else if (this.element.tagName === 'TEXTAREA' || this.element.tagName === 'INPUT') {
+      const input = this.element as HTMLInputElement | HTMLTextAreaElement;
+      const cursorPos = input.selectionStart || 0;
+      const text = input.value.substring(0, cursorPos);
+      const words = text.trim().split(/\s+/);
+      return words[words.length - 1] || '';
+    }
+    return '';
+  }
+
+  private async fetchSuggestions(prefix: string): Promise<any[]> {
+    return new Promise((resolve) => {
+      chrome.storage.local.get(['responses'], (result) => {
+        const responses = result.responses || [];
+        const prefixLower = prefix.toLowerCase();
+
+        const matches = responses.filter((response: any) => {
+          const content = (response.content || response.title || "").toLowerCase();
+          return content.startsWith(prefixLower);
+        });
+
+        resolve(matches);
+      });
+    });
+  }
+
+  private showSuggestion(suggestion: any, currentText: string) {
+    this.currentSuggestion = suggestion;
+    const fullText = suggestion.content || suggestion.title || '';
+
+    // Detect platform for different display strategies
+    const isLinkedIn = window.location.hostname.includes("linkedin");
+    const isTwitter = window.location.hostname.includes("twitter") || window.location.hostname.includes("x.com");
+
+    // Platform-specific suggestion display logic
+    if (isTwitter) {
+      // Twitter-specific logic: show only the remainder to avoid duplication
+      let displayText = fullText;
+      if (fullText.toLowerCase().startsWith(currentText.toLowerCase())) {
+        displayText = fullText.substring(currentText.length);
+      }
+
+      // Truncate long suggestions for Twitter's smaller input box
+      const maxLength = 70; // Optimized limit for Twitter's input box
+      if (displayText.length > maxLength) {
+        displayText = displayText.substring(0, maxLength - 3) + "...";
+      }
+
+      this.createGhostElement(displayText, currentText, fullText, 'twitter');
+    } else {
+      // LinkedIn and others: show the full text in gray behind
+      this.createGhostElement(fullText, currentText, fullText, 'linkedin');
+    }
+  }
+
+  private createGhostElement(text: string, _currentText: string, _fullText: string, platform: 'linkedin' | 'twitter') {
+    this.clearGhostElement();
+
+    if (this.element.getAttribute('contenteditable') === 'true') {
+      const overlay = document.createElement('div');
+      overlay.className = 'canner-ghost-suggestion';
+
+      if (platform === 'linkedin') {
+        // LinkedIn: show the full suggestion text with proper styling
+        overlay.textContent = _fullText;
+        overlay.style.cssText = `
+          position: fixed;
+          color: rgba(102, 112, 122, 0.3);
+          pointer-events: none;
+          z-index: 9999;
+          white-space: pre-wrap;
+          overflow-wrap: break-word;
+          word-wrap: break-word;
+          font-family: inherit;
+          font-size: inherit;
+          font-weight: inherit;
+          line-height: inherit;
+          max-width: calc(100% - 40px);
+          display: block;
+        `;
+        this.positionLinkedInOverlay(overlay);
+      } else {
+        // Twitter: show only the remainder text at cursor position
+        overlay.textContent = text;
+        overlay.style.cssText = `
+          position: fixed;
+          color: rgba(102, 112, 122, 0.7);
+          pointer-events: none;
+          z-index: 10000;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          font-family: inherit;
+          font-size: inherit;
+          font-weight: inherit;
+          line-height: inherit;
+          max-width: 300px;
+          display: inline-block;
+        `;
+        this.positionTwitterOverlay(overlay);
+      }
+
+      this.ghostElement = overlay;
+    }
+  }
+
+  private positionLinkedInOverlay(overlay: HTMLElement) {
+    const containerRect = this.element.getBoundingClientRect();
+
+    // Match the element's font styles exactly
+    const computedStyle = window.getComputedStyle(this.element);
+    overlay.style.fontFamily = computedStyle.fontFamily;
+    overlay.style.fontSize = computedStyle.fontSize;
+    overlay.style.fontWeight = computedStyle.fontWeight;
+    overlay.style.lineHeight = computedStyle.lineHeight;
+
+    // Position the overlay to fill the entire input area
+    overlay.style.left = `${containerRect.left + 10}px`;
+    overlay.style.top = `${containerRect.top + 10}px`;
+    overlay.style.width = `${containerRect.width - 20}px`;
+
+    document.body.appendChild(overlay);
+  }
+
+  private positionTwitterOverlay(overlay: HTMLElement) {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return;
+
+    const range = selection.getRangeAt(0);
+    const rect = range.getBoundingClientRect();
+    const containerRect = this.element.getBoundingClientRect();
+
+    // Match the element's font styles exactly
+    const computedStyle = window.getComputedStyle(this.element);
+    overlay.style.fontFamily = computedStyle.fontFamily;
+    overlay.style.fontSize = computedStyle.fontSize;
+    overlay.style.fontWeight = computedStyle.fontWeight;
+    overlay.style.lineHeight = computedStyle.lineHeight;
+
+    // Position exactly at cursor baseline for Twitter
+    let left = rect.right + 1;
+    let top = rect.top;
+
+    // Calculate baseline alignment for perfect text alignment
+    const fontSize = parseFloat(computedStyle.fontSize) || 16;
+    const baselineOffset = fontSize * 0.85;
+    top = rect.top + (rect.height - fontSize) / 2 + baselineOffset - fontSize;
+
+    // Ensure the overlay stays within Twitter's small container boundaries
+    const overlayWidth = overlay.offsetWidth;
+
+    // Check if overlay exceeds container right boundary (important for Twitter)
+    if (left + overlayWidth > containerRect.right - 5) {
+      // Calculate available space and set reasonable max width
+      const availableWidth = containerRect.right - left - 10;
+      if (availableWidth > 100) {
+        // Allow up to 250px but not more than available space
+        const maxWidth = Math.min(250, availableWidth);
+        overlay.style.maxWidth = `${maxWidth}px`;
+      } else if (availableWidth > 50) {
+        // Minimum usable space
+        overlay.style.maxWidth = `${availableWidth}px`;
+      } else {
+        // If no space available, don't show the suggestion
+        overlay.remove();
+        return;
+      }
+    }
+
+    // Apply final position
+    overlay.style.left = `${left}px`;
+    overlay.style.top = `${top}px`;
+
+    document.body.appendChild(overlay);
+  }
+
+  private clearGhostElement() {
+    if (this.ghostElement) {
+      this.ghostElement.remove();
+      this.ghostElement = null;
+    }
+  }
+
+  private clearSuggestion() {
+    this.currentSuggestion = null;
+    this.clearGhostElement();
+  }
+
+  private acceptSuggestion() {
+    if (!this.currentSuggestion) return;
+
+    // Suppress further input handling temporarily
+    this.suppressedUntil = Date.now() + 500;
+
+    const fullText = this.currentSuggestion.content || this.currentSuggestion.title || '';
+    const currentText = this.getCurrentText();
+
+    // Replace current text with full suggestion
+    if (this.element.getAttribute('contenteditable') === 'true') {
+      this.replaceInContentEditable(fullText, currentText);
+    } else if (this.element.tagName === 'TEXTAREA' || this.element.tagName === 'INPUT') {
+      this.replaceInInput(fullText, currentText);
+    }
+
+    this.clearSuggestion();
+  }
+
+  private replaceInContentEditable(fullText: string, _currentText: string) {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return;
+
+    const range = selection.getRangeAt(0);
+
+    // Create a range to select the current text
+    const tempRange = range.cloneRange();
+    tempRange.selectNodeContents(this.element);
+    tempRange.setEnd(range.endContainer, range.endOffset);
+
+    const currentContent = tempRange.cloneContents().textContent || '';
+    const lastSpaceIndex = currentContent.lastIndexOf(' ');
+    const startIndex = lastSpaceIndex >= 0 ? lastSpaceIndex + 1 : 0;
+
+    // Create range to replace the current word
+    const replaceRange = document.createRange();
+    replaceRange.setStart(this.element, 0);
+
+    // Find the text node and offset for the start
+    const walker = document.createTreeWalker(this.element, NodeFilter.SHOW_TEXT);
+    let currentOffset = 0;
+    let startNode = null;
+    let startOffset = 0;
+
+    while (walker.nextNode()) {
+      const node = walker.currentNode as Text;
+      const nodeLength = node.textContent?.length || 0;
+
+      if (currentOffset + nodeLength >= startIndex) {
+        startNode = node;
+        startOffset = startIndex - currentOffset;
+        break;
+      }
+      currentOffset += nodeLength;
+    }
+
+    if (startNode) {
+      replaceRange.setStart(startNode, startOffset);
+      replaceRange.setEnd(range.endContainer, range.endOffset);
+      replaceRange.deleteContents();
+
+      const textNode = document.createTextNode(fullText);
+      replaceRange.insertNode(textNode);
+
+      // Move cursor to end
+      const newRange = document.createRange();
+      newRange.setStartAfter(textNode);
+      newRange.collapse(true);
+      selection.removeAllRanges();
+      selection.addRange(newRange);
+
+      // Trigger events
+      this.element.dispatchEvent(new InputEvent('input', { bubbles: true }));
+      this.element.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+  }
+
+  private replaceInInput(fullText: string, _currentText: string) {
+    const input = this.element as HTMLInputElement | HTMLTextAreaElement;
+    const cursorPos = input.selectionStart || 0;
+    const value = input.value;
+
+    // Find the start of the current word
+    let startPos = cursorPos - 1;
+    while (startPos >= 0 && value[startPos] !== ' ' && value[startPos] !== '\n') {
+      startPos--;
+    }
+    startPos++;
+
+    const newValue = value.substring(0, startPos) + fullText + value.substring(cursorPos);
+    input.value = newValue;
+
+    // Set cursor position
+    const newCursorPos = startPos + fullText.length;
+    input.setSelectionRange(newCursorPos, newCursorPos);
+
+    // Trigger events
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+}
+
+async function fetchLocalSuggestions(prefix: string): Promise<any[]> {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(["responses"], (result) => {
+      const list = result.responses || [];
+      const q = prefix.toLowerCase();
+      const matches = list
+        .map((r: any) => ({
+          r,
+          score:
+            (r.title && r.title.toLowerCase().startsWith(q) ? 100 : 0) +
+            (r.content && r.content.toLowerCase().includes(q) ? 10 : 0) +
+            (r.usage_count || 0),
+        }))
+        .filter((m: any) => m.score > 0)
+        .sort((a: any, b: any) => b.score - a.score)
+        .map((m: any) => m.r);
+      resolve(matches);
+    });
+  });
+}
 
 // Initialize the helper
 function init() {
   console.log("Social Helper: Initializing for all platforms...");
+
+  trackFocusedInputs(); // add to track focused input
 
   // Add pen buttons to all input boxes
   addMessageHelpers();
@@ -37,25 +494,24 @@ function init() {
 function addMessageHelpers() {
   console.log("Social Helper: Adding message helpers...");
 
-  // Target multiple types of input elements across platforms
   const selectors = [
-    '[contenteditable="true"]', // LinkedIn, X/Twitter, Facebook
-    'textarea[placeholder*="comment" i]', // Comment textareas
-    'textarea[placeholder*="message" i]', // Message textareas
-    'textarea[placeholder*="reply" i]', // Reply textareas
-    'textarea[placeholder*="What" i]', // "What's happening" etc
-    'textarea[data-testid="tweetTextarea_0"]', // X/Twitter specific
-    'div[data-testid="tweetTextarea_0"]', // X/Twitter contenteditable
-    'div[data-testid="dmComposerTextInput"]', // X/Twitter DM input
-    'div[data-testid="cellInnerDiv"] [contenteditable="true"]', // X/Twitter replies
-    'textarea[name="message"]', // Generic message inputs
-    'input[type="text"][placeholder*="comment" i]', // Text inputs for comments
-    '[aria-label*="Tweet" i][contenteditable="true"]', // X/Twitter compose
-    '[aria-label*="Reply" i][contenteditable="true"]', // X/Twitter replies
-    '[data-text="true"][contenteditable="true"]', // X/Twitter alternative
-    '.comments-comment-box [contenteditable="true"]', // LinkedIn comments
-    '.msg-form [contenteditable="true"]', // LinkedIn messages
-    '.share-creation-state [contenteditable="true"]', // LinkedIn posts
+    '[contenteditable="true"]',
+    'textarea[placeholder*="comment" i]',
+    'textarea[placeholder*="message" i]',
+    'textarea[placeholder*="reply" i]',
+    'textarea[placeholder*="What" i]',
+    'textarea[data-testid="tweetTextarea_0"]',
+    'div[data-testid="tweetTextarea_0"]',
+    'div[data-testid="dmComposerTextInput"]',
+    'div[data-testid="cellInnerDiv"] [contenteditable="true"]',
+    'textarea[name="message"]',
+    'input[type="text"][placeholder*="comment" i]',
+    '[aria-label*="Tweet" i][contenteditable="true"]',
+    '[aria-label*="Reply" i][contenteditable="true"]',
+    '[data-text="true"][contenteditable="true"]',
+    '.comments-comment-box [contenteditable="true"]',
+    '.msg-form [contenteditable="true"]',
+    '.share-creation-state [contenteditable="true"]',
   ];
 
   const messageBoxes = document.querySelectorAll(selectors.join(", "));
@@ -91,7 +547,7 @@ function addMessageHelpers() {
 
     // Create a simple unique ID
     if (!box.id) {
-      box.id = `sh-box-${Math.random().toString(36).substr(2, 9)}`;
+      box.id = `sh-box-${Math.random().toString(36).substring(2, 11)}`;
     }
 
     // Check if we already processed this element
@@ -109,6 +565,26 @@ function addMessageHelpers() {
       console.log(
         `Social Helper: Button already exists for element ${index + 1}`
       );
+      // Ensure a SuggestionManager is attached even if button was already present.
+      // Resolve the actual editable inside this box (same logic as below).
+      try {
+        const resolvedEditable = ((): HTMLElement => {
+          const el = box as HTMLElement;
+          if (el.getAttribute && el.getAttribute("contenteditable") === "true") return el;
+          const inner = el.querySelector?.('[contenteditable="true"], textarea, input[type="text"]') as HTMLElement | null;
+          return inner || el;
+        })();
+
+        if (!resolvedEditable.id) {
+          resolvedEditable.id = `${box.id}-editable`;
+        }
+
+        if (!suggestionManagers[resolvedEditable.id]) {
+          suggestionManagers[resolvedEditable.id] = new InlineSuggestionManager(resolvedEditable as HTMLElement);
+        }
+      } catch (err) {
+        console.error("Canner: Failed to attach SuggestionManager:", err);
+      }
       injectedElements.add(box.id);
       return;
     }
@@ -119,10 +595,33 @@ function addMessageHelpers() {
     const penButton = createPenButton(box as HTMLElement);
     positionPenButton(box as HTMLElement, penButton);
 
+    // Resolve the actual editable element inside this box (Twitter often wraps the real
+    // contenteditable inside additional divs). Attach the SuggestionManager to the
+    // actual editable so insertion/replacement logic runs against the real editor.
+    const resolvedEditable = ((): HTMLElement => {
+      const el = box as HTMLElement;
+      if (el.getAttribute && el.getAttribute("contenteditable") === "true") return el;
+      const inner = el.querySelector?.('[contenteditable="true"], textarea, input[type="text"]') as HTMLElement | null;
+      return inner || el;
+    })();
+
+    // Ensure resolvedEditable has an id we can use to track managers
+    if (!resolvedEditable.id) {
+      resolvedEditable.id = `${box.id}-editable`;
+    }
+
+    // Attach InlineSuggestionManager for inline completions to the resolved editable
+    try {
+      if (!suggestionManagers[resolvedEditable.id]) {
+        suggestionManagers[resolvedEditable.id] = new InlineSuggestionManager(resolvedEditable as HTMLElement);
+      }
+    } catch (err) {
+      console.error("Canner: Failed to create InlineSuggestionManager:", err);
+    }
+
     injectedElements.add(box.id);
     console.log(
-      `Social Helper: Pen button created and positioned for element ${
-        index + 1
+      `Social Helper: Pen button created and positioned for element ${index + 1
       }`
     );
   });
@@ -386,25 +885,24 @@ async function showResponseMenu(targetBox: HTMLElement, button: HTMLElement) {
         </div>
         <div class="lh-menu-items">
           ${responses
-            .map(
-              (r) => `
+          .map(
+            (r) => `
             <div class="lh-menu-item" data-id="${r.id}">
               <div class="lh-item-title">${r.title}</div>
               <div class="lh-item-preview">${r.content.substring(
-                0,
-                60
-              )}...</div>
-              ${
-                r.tags
-                  ? `<div class="lh-item-tags">${r.tags
-                      .map((t: string) => `<span class="lh-tag">${t}</span>`)
-                      .join("")}</div>`
-                  : ""
+              0,
+              60
+            )}...</div>
+              ${r.tags
+                ? `<div class="lh-item-tags">${r.tags
+                  .map((t: string) => `<span class="lh-tag">${t}</span>`)
+                  .join("")}</div>`
+                : ""
               }
             </div>
           `
-            )
-            .join("")}
+          )
+          .join("")}
         </div>
         <div class="lh-menu-footer">
           <button class="lh-btn-create">➕ New Response</button>
@@ -607,7 +1105,7 @@ function addConnectionHelpers() {
 
     // Create simple ID
     if (!box.id) {
-      box.id = `lh-conn-${Math.random().toString(36).substr(2, 9)}`;
+      box.id = `lh-conn-${Math.random().toString(36).substring(2, 11)}`;
     }
 
     if (injectedElements.has(box.id)) {
@@ -691,19 +1189,19 @@ let saveButton: HTMLElement | null = null;
 
 function addTextSelectionHandler() {
   console.log("Canner: Adding text selection handlers");
-  
+
   document.addEventListener("mouseup", () => {
     setTimeout(handleTextSelection, 50);
   });
-  
+
   document.addEventListener("keyup", () => {
     setTimeout(handleTextSelection, 50);
   });
-  
+
   document.addEventListener("selectionchange", () => {
     setTimeout(handleTextSelection, 100);
   });
-  
+
   document.addEventListener("mousedown", (e) => {
     if (saveButton && !saveButton.contains(e.target as Node)) {
       if (saveButton) {
@@ -759,9 +1257,9 @@ function handleTextSelection() {
   const btn = saveButton.querySelector(
     ".lh-save-selection-btn"
   ) as HTMLButtonElement;
-  
+
   const textToSave = selectedText;
-  
+
   const clickHandler = async (e: Event) => {
     e.preventDefault();
     e.stopPropagation();
@@ -789,7 +1287,7 @@ function handleTextSelection() {
       selection?.removeAllRanges();
     }, 100);
   };
-  
+
   btn.addEventListener("click", clickHandler, { capture: true, once: true });
   btn.addEventListener("mousedown", clickHandler, { capture: true, once: true });
   btn.addEventListener("touchend", clickHandler, { capture: true, once: true });
@@ -797,7 +1295,8 @@ function handleTextSelection() {
 }
 
 // Show dialog to save selected text as response
-async function showSaveDialog(text: string) {
+// Note: Currently unused but kept for future feature implementation
+async function _showSaveDialog(text: string) {
   // Create modal overlay
   const modal = document.createElement("div");
   modal.className = "linkedin-helper-modal";
@@ -936,7 +1435,7 @@ function showToast(message: string) {
 // Save response directly without dialog
 async function saveResponseDirectly(text: string) {
   console.log("Canner: saveResponseDirectly called with text:", text);
-  
+
   if (!text || text.trim().length === 0) {
     console.error("Canner: No text provided to save");
     showToast("❌ No text to save");
@@ -951,7 +1450,7 @@ async function saveResponseDirectly(text: string) {
   const timestamp = new Date().toISOString();
 
   // Detect platform and set tags/category accordingly
-  const isLinkedIn = window.location.hostname.includes("linkedin");
+  const _isLinkedIn = window.location.hostname.includes("linkedin");
   const isTwitter =
     window.location.hostname.includes("twitter") ||
     window.location.hostname.includes("x.com");
@@ -995,14 +1494,14 @@ async function saveResponseDirectly(text: string) {
     console.log("Canner: Saving to Chrome local storage");
     const result = await chrome.storage.local.get(["responses"]);
     const responses = result.responses || [];
-    
+
     const newResponse = {
       id: Date.now().toString(),
       ...responseData,
       tags: Array.isArray(responseData.tags) ? responseData.tags : [responseData.tags].filter(Boolean),
       created_at: timestamp,
     };
-    
+
     responses.push(newResponse);
     await chrome.storage.local.set({ responses });
     console.log("Canner: Saved to local storage successfully", newResponse);
@@ -1052,19 +1551,70 @@ if (document.readyState === "loading") {
   }
 }
 
+// Helper function to check if element is valid input
+function isValidInputElement(element: HTMLElement | null): boolean {
+  if (!element) return false;
+
+  const isContentEditable = element.getAttribute('contenteditable') === 'true';
+  const tagName = element.tagName?.toLowerCase();
+  const isInput = tagName === 'input' || tagName === 'textarea';
+
+  return isContentEditable || isInput;
+}
+
 // Listen for messages from popup or background script
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.action === "insertResponse") {
-    const activeElement = document.activeElement as HTMLElement;
-    if (
-      activeElement &&
-      activeElement.getAttribute("contenteditable") === "true"
-    ) {
-      insertText(activeElement, message.content);
-      sendResponse({ success: true });
-    } else {
-      sendResponse({ success: false, error: "No active input box" });
-    }
+  // Handle ping to check if script is loaded
+  if (message.action === "ping") {
+    sendResponse({ pong: true });
+    return true;
   }
+
+  if (message.action === "insertResponse") {
+    console.log("Canner: Received insertResponse message", message);
+
+    // Try to get the target element
+    let targetElement = lastFocusedInput || document.activeElement as HTMLElement | null;
+
+    // If no focused element found, search for visible input elements
+    if (!targetElement || !isValidInputElement(targetElement)) {
+      const possibleInputs = [
+        ...Array.from(document.querySelectorAll('[contenteditable="true"]')),
+        ...Array.from(document.querySelectorAll('textarea')),
+        ...Array.from(document.querySelectorAll('input[type="text"]'))
+      ].filter(el => {
+        const rect = (el as HTMLElement).getBoundingClientRect();
+        const style = window.getComputedStyle(el as HTMLElement);
+        return rect.width > 0 && rect.height > 0 &&
+          style.display !== 'none' &&
+          style.visibility !== 'hidden';
+      });
+
+      targetElement = possibleInputs[0] as HTMLElement || null;
+    }
+
+    if (!targetElement || !isValidInputElement(targetElement)) {
+      console.error("Canner: No valid input element found");
+      sendResponse({
+        success: false,
+        error: "Please click in an input field first"
+      });
+      return true;
+    }
+
+    try {
+      // Focus the element before inserting
+      targetElement.focus();
+      insertText(targetElement, message.content);
+      console.log("Canner: Text inserted successfully");
+      sendResponse({ success: true });
+    } catch (error) {
+      console.error("Canner: Error inserting text", error);
+      sendResponse({ success: false, error: "Failed to insert text" });
+    }
+
+    return true;
+  }
+
   return true;
 });

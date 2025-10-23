@@ -60,8 +60,11 @@ const App: React.FC = () => {
   }, [notification]);
 
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', isDarkMode ? 'dark' : 'light');
-    chrome.storage.sync.set({ theme: isDarkMode ? 'dark' : 'light' });
+    document.documentElement.setAttribute(
+      "data-theme",
+      isDarkMode ? "dark" : "light"
+    );
+    chrome.storage.sync.set({ theme: isDarkMode ? "dark" : "light" });
   }, [isDarkMode]);
 
   async function loadUser() {
@@ -83,9 +86,9 @@ const App: React.FC = () => {
   }
 
   async function loadTheme() {
-    const result = await chrome.storage.sync.get(['theme']);
-    const theme = result.theme || 'light';
-    setIsDarkMode(theme === 'dark');
+    const result = await chrome.storage.sync.get(["theme"]);
+    const theme = result.theme || "light";
+    setIsDarkMode(theme === "dark");
   }
 
   async function load() {
@@ -114,7 +117,7 @@ const App: React.FC = () => {
     setEditingId(r.id || null);
     setTitle(r.title || "");
     setContent(r.content || "");
-    const t = Array.isArray(r.tags) ? r.tags.join(", ") : (r.tags || "");
+    const t = Array.isArray(r.tags) ? r.tags.join(", ") : r.tags || "";
     setTags(t);
     setShowModal(true);
   }
@@ -131,7 +134,10 @@ const App: React.FC = () => {
     return (
       r.title.toLowerCase().includes(q) ||
       r.content.toLowerCase().includes(q) ||
-      (Array.isArray(r.tags) ? r.tags.join(" ").toLowerCase() : String(r.tags || "")).includes(q)
+      (Array.isArray(r.tags)
+        ? r.tags.join(" ").toLowerCase()
+        : String(r.tags || "")
+      ).includes(q)
     );
   });
 
@@ -151,7 +157,7 @@ const App: React.FC = () => {
       // Optimistic update for edit
       const prev = responses;
       const optimistic = responses.map((r) =>
-        r.id === editingId ? { ...r, ...baseData } as Response : r
+        r.id === editingId ? ({ ...r, ...baseData } as Response) : r
       );
       setResponses(optimistic);
       setSaving(true);
@@ -159,7 +165,9 @@ const App: React.FC = () => {
       try {
         const updated = await updateResponse(editingId, baseData);
         // Ensure state reflects server result
-        setResponses((cur) => cur.map((r) => (r.id === editingId ? { ...r, ...updated } : r)));
+        setResponses((cur) =>
+          cur.map((r) => (r.id === editingId ? { ...r, ...updated } : r))
+        );
         setShowModal(false);
         setSaving(false);
         setNotification("✓ Updated successfully");
@@ -273,20 +281,20 @@ const App: React.FC = () => {
     if (!id) return;
     if (!confirm("Delete this response permanently?")) return;
 
-    setDeletingIds(prev => new Set(prev).add(id));
+    setDeletingIds((prev) => new Set(prev).add(id));
 
     setTimeout(async () => {
       try {
         await deleteResponse(id);
         await load();
-        setDeletingIds(prev => {
+        setDeletingIds((prev) => {
           const newSet = new Set(prev);
           newSet.delete(id);
           return newSet;
         });
         setNotification("✓ Response deleted");
       } catch (e) {
-        setDeletingIds(prev => {
+        setDeletingIds((prev) => {
           const newSet = new Set(prev);
           newSet.delete(id);
           return newSet;
@@ -298,16 +306,51 @@ const App: React.FC = () => {
 
   async function handleInsert(text: string) {
     try {
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      if (tab?.id) {
-        chrome.tabs.sendMessage(tab.id, { action: "insertResponse", content: text }, (res) => {
-          if (res?.success) {
-            setNotification("✓ Inserted successfully");
-            setTimeout(() => window.close(), 500);
-          } else {
-            setNotification("⚠️ No input field detected");
-          }
-        });
+      const [tab] = await chrome.tabs.query({
+        active: true,
+        currentWindow: true,
+      });
+      if (!tab.id) {
+        setNotification("No Active Tab");
+        return;
+      }
+
+      // Ensure content script is loaded
+      try {
+        await ensureContentScriptLoaded(tab.id);
+      } catch (err) {
+        console.error("Failed to inject content script:", err);
+        setNotification("⚠️ Failed to load on this page");
+        return;
+      }
+
+      // Send message and wait for response
+      const response = await new Promise<{ success: boolean; error?: string }>(
+        (resolve) => {
+          chrome.tabs.sendMessage(
+            tab.id!,
+            { action: "insertResponse", content: text },
+            (res) => {
+              if (chrome.runtime.lastError) {
+                resolve({
+                  success: false,
+                  error: chrome.runtime.lastError.message,
+                });
+              } else if (!res) {
+                resolve({ success: false, error: "No response from page" });
+              } else {
+                resolve(res);
+              }
+            }
+          );
+        }
+      );
+
+      if (response.success) {
+        setNotification("✓ Inserted successfully");
+        setTimeout(() => window.close(), 500);
+      } else {
+        setNotification(`⚠️ ${response.error || "No input field detected"}`);
       }
     } catch (e) {
       console.error(e);
@@ -478,23 +521,38 @@ const App: React.FC = () => {
 
   return (
     <div className="popup-container">
-      {notification && (
-        <div className="notification">{notification}</div>
-      )}
+      {notification && <div className="notification">{notification}</div>}
 
       <header className="popup-header">
         <div className="header-content">
           <div className="brand-section">
             <div className="brand-logo">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                <path d="M12 2L2 7L12 12L22 7L12 2Z" fill="currentColor" opacity="0.9"/>
-                <path d="M2 17L12 22L22 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                <path d="M2 12L12 17L22 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                <path
+                  d="M12 2L2 7L12 12L22 7L12 2Z"
+                  fill="currentColor"
+                  opacity="0.9"
+                />
+                <path
+                  d="M2 17L12 22L22 17"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
+                <path
+                  d="M2 12L12 17L22 12"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
               </svg>
             </div>
             <div className="brand-text">
               <h1 className="brand-title">Canner</h1>
-              <p className="brand-subtitle">{responses.length} {responses.length === 1 ? 'response' : 'responses'}</p>
+              <p className="brand-subtitle">
+                {responses.length}{" "}
+                {responses.length === 1 ? "response" : "responses"}
+              </p>
             </div>
           </div>
           
@@ -527,13 +585,23 @@ const App: React.FC = () => {
             
             <button className="theme-toggle" onClick={() => setIsDarkMode(!isDarkMode)} aria-label="Toggle dark mode">
               {isDarkMode ? (
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="12" cy="12" r="5"/>
-                  <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <circle cx="12" cy="12" r="5" />
+                  <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
                 </svg>
               ) : (
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
                 </svg>
               )}
             </button>
@@ -595,9 +663,17 @@ const App: React.FC = () => {
 
       <div className="popup-body">
         <div className="search-container">
-          <svg className="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="11" cy="11" r="8"/>
-            <path d="m21 21-4.35-4.35"/>
+          <svg
+            className="search-icon"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <circle cx="11" cy="11" r="8" />
+            <path d="m21 21-4.35-4.35" />
           </svg>
           <input
             className="search-input"
@@ -608,9 +684,20 @@ const App: React.FC = () => {
             aria-label="Search responses"
           />
           {query && (
-            <button className="search-clear" onClick={() => setQuery("")} aria-label="Clear search">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M18 6L6 18M6 6l12 12"/>
+            <button
+              className="search-clear"
+              onClick={() => setQuery("")}
+              aria-label="Clear search"
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <path d="M18 6L6 18M6 6l12 12" />
               </svg>
             </button>
           )}
@@ -635,20 +722,34 @@ const App: React.FC = () => {
           <div className="empty-state">
             {query ? (
               <>
-                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <circle cx="11" cy="11" r="8"/>
-                  <path d="m21 21-4.35-4.35"/>
+                <svg
+                  width="48"
+                  height="48"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                >
+                  <circle cx="11" cy="11" r="8" />
+                  <path d="m21 21-4.35-4.35" />
                 </svg>
                 <h3>No matches found</h3>
                 <p>Try adjusting your search terms</p>
               </>
             ) : (
               <>
-                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                  <polyline points="14 2 14 8 20 8"/>
-                  <line x1="12" y1="18" x2="12" y2="12"/>
-                  <line x1="9" y1="15" x2="15" y2="15"/>
+                <svg
+                  width="48"
+                  height="48"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                >
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                  <line x1="12" y1="18" x2="12" y2="12" />
+                  <line x1="9" y1="15" x2="15" y2="15" />
                 </svg>
                 <h3>No saved responses</h3>
                 <p>Create your first response to get started</p>
@@ -661,37 +762,79 @@ const App: React.FC = () => {
         ) : (
           <div className="responses-list">
             {filtered.map((r) => (
-              <div key={r.id} className={`response-card ${deletingIds.has(r.id!) ? 'sliding-out' : ''}`}>
+              <div
+                key={r.id}
+                className={`response-card ${
+                  deletingIds.has(r.id!) ? "sliding-out" : ""
+                }`}
+              >
                 <div className="card-header">
                   <h3 className="card-title">{r.title}</h3>
                   {Array.isArray(r.tags) && r.tags.length > 0 && (
                     <div className="card-tags">
                       {r.tags.slice(0, 2).map((t: string, i: number) => (
-                        <span key={i} className="tag">{t}</span>
+                        <span key={i} className="tag">
+                          {t}
+                        </span>
                       ))}
-                      {r.tags.length > 2 && <span className="tag-more">+{r.tags.length - 2}</span>}
+                      {r.tags.length > 2 && (
+                        <span className="tag-more">+{r.tags.length - 2}</span>
+                      )}
                     </div>
                   )}
                 </div>
                 <p className="card-content">{r.content}</p>
                 <div className="card-actions">
-                  <button className="btn-action btn-insert" onClick={() => handleInsert(r.content)} aria-label="Insert response">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M12 5v14M5 12h14"/>
+                  <button
+                    className="btn-action btn-insert"
+                    onClick={() => handleInsert(r.content)}
+                    aria-label="Insert response"
+                  >
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <path d="M12 5v14M5 12h14" />
                     </svg>
                     Insert
                   </button>
-                  <button className="btn-action" onClick={() => openEditModal(r)} aria-label="Edit response">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z"/>
-                      <path d="M14.06 4.94l3.75 3.75"/>
+                  <button
+                    className="btn-action"
+                    onClick={() => openEditModal(r)}
+                    aria-label="Edit response"
+                  >
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z" />
+                      <path d="M14.06 4.94l3.75 3.75" />
                     </svg>
                     Edit
                   </button>
-                  <button className="btn-action btn-delete" onClick={() => handleDelete(r.id)} aria-label="Delete response">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <polyline points="3 6 5 6 21 6"/>
-                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                  <button
+                    className="btn-action btn-delete"
+                    onClick={() => handleDelete(r.id)}
+                    aria-label="Delete response"
+                  >
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <polyline points="3 6 5 6 21 6" />
+                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
                     </svg>
                     Delete
                   </button>
@@ -703,27 +846,55 @@ const App: React.FC = () => {
       </div>
 
       <footer className="popup-footer">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <circle cx="12" cy="12" r="10"/>
-          <path d="M12 16v-4M12 8h.01"/>
+        <svg
+          width="12"
+          height="12"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+        >
+          <circle cx="12" cy="12" r="10" />
+          <path d="M12 16v-4M12 8h.01" />
         </svg>
         Press <kbd>Ctrl+Shift+L</kbd> on LinkedIn pages
       </footer>
       
       {showModal && (
         <div className="modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="modal-title">
+          <div
+            className="modal"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="modal-title"
+          >
             <div className="modal-header">
-              <h2 id="modal-title">{isEditing ? 'Edit Response' : 'Create Response'}</h2>
-              <button className="btn-close" onClick={() => setShowModal(false)} aria-label="Close modal">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M18 6L6 18M6 6l12 12"/>
+              <h2 id="modal-title">
+                {isEditing ? "Edit Response" : "Create Response"}
+              </h2>
+              <button
+                className="btn-close"
+                onClick={() => setShowModal(false)}
+                aria-label="Close modal"
+              >
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <path d="M18 6L6 18M6 6l12 12" />
                 </svg>
               </button>
             </div>
             <div className="modal-body">
               <div className="form-group">
-                <label htmlFor="title-input" className="form-label">Title</label>
+                <label htmlFor="title-input" className="form-label">
+                  Title
+                </label>
                 <input
                   id="title-input"
                   className="form-input"
@@ -735,7 +906,9 @@ const App: React.FC = () => {
                 />
               </div>
               <div className="form-group">
-                <label htmlFor="content-input" className="form-label">Content</label>
+                <label htmlFor="content-input" className="form-label">
+                  Content
+                </label>
                 <textarea
                   id="content-input"
                   className="form-textarea"
@@ -746,7 +919,9 @@ const App: React.FC = () => {
                 />
               </div>
               <div className="form-group">
-                <label htmlFor="tags-input" className="form-label">Tags</label>
+                <label htmlFor="tags-input" className="form-label">
+                  Tags
+                </label>
                 <input
                   id="tags-input"
                   className="form-input"
@@ -767,16 +942,37 @@ const App: React.FC = () => {
               )}
             </div>
             <div className="modal-footer">
-              <button className="btn-secondary" disabled={saving} onClick={() => setShowModal(false)}>
+              <button
+                className="btn-secondary"
+                disabled={saving}
+                onClick={() => setShowModal(false)}
+              >
                 Cancel
               </button>
-              <button className="btn-primary" onClick={handleSave} disabled={saving}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
-                  <polyline points="17 21 17 13 7 13 7 21"/>
-                  <polyline points="7 3 7 8 15 8"/>
+              <button
+                className="btn-primary"
+                onClick={handleSave}
+                disabled={saving}
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                  <polyline points="17 21 17 13 7 13 7 21" />
+                  <polyline points="7 3 7 8 15 8" />
                 </svg>
-                {saving ? (isEditing ? 'Saving changes...' : 'Saving...') : (isEditing ? 'Save Changes' : 'Save Response')}
+                {saving
+                  ? isEditing
+                    ? "Saving changes..."
+                    : "Saving..."
+                  : isEditing
+                  ? "Save Changes"
+                  : "Save Response"}
               </button>
             </div>
           </div>
