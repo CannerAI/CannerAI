@@ -39,6 +39,16 @@ class DatabaseService:
             )
         ''')
         
+        # Migration: Add profile_id column if it doesn't exist
+        try:
+            conn.execute('ALTER TABLE responses ADD COLUMN profile_id TEXT')
+            print("✅ Added profile_id column to responses table")
+        except Exception as e:
+            if "duplicate column name" in str(e).lower() or "already exists" in str(e).lower():
+                pass  # Column already exists, which is fine
+            else:
+                print(f"⚠️ Migration warning: {e}")
+        
         # Create users table
         conn.execute('''
             CREATE TABLE IF NOT EXISTS users (

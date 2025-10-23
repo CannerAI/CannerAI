@@ -307,6 +307,7 @@ def get_responses():
         profile = DatabaseService.get_active_profile_by_user_id(user_id)
         if profile:
             profile_id = profile.id
+        logging.info(f"User {user_id} active profile: {profile_id} ({profile.profile_name if profile else 'None'})")
     
     if search and profile_id:
         if is_postgres():
@@ -354,7 +355,11 @@ def get_responses():
             rows = execute_query(conn, 'SELECT * FROM responses WHERE profile_id = ? ORDER BY created_at DESC', 
                                (profile_id,))
     else:
-        rows = execute_query(conn, 'SELECT * FROM responses ORDER BY created_at DESC')
+        # If no profile is active, show responses without profile_id (legacy responses)
+        if is_postgres():
+            rows = execute_query(conn, 'SELECT * FROM responses WHERE profile_id IS NULL ORDER BY created_at DESC')
+        else:
+            rows = execute_query(conn, 'SELECT * FROM responses WHERE profile_id IS NULL ORDER BY created_at DESC')
     
     conn.close()
     

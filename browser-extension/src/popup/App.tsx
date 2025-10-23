@@ -231,6 +231,10 @@ const App: React.FC = () => {
       ));
       
       setActiveProfile(updatedProfile);
+      
+      // Reload responses for the new active profile
+      await load();
+      
       setNotification("✓ Profile activated");
     } catch (e) {
       console.error(e);
@@ -547,21 +551,13 @@ const App: React.FC = () => {
       <div className="profile-section">
         <div className="profile-header">
           <h2>Profiles</h2>
-          <button className="btn-secondary" onClick={openCreateProfileModal}>
+          <button className="btn-secondary" style={{ marginLeft: '10px' }} onClick={openCreateProfileModal}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M12 5v14M5 12h14"/>
             </svg>
             New Profile
           </button>
         </div>
-        
-        {activeProfile && (
-          <div className="active-profile">
-            <span className="profile-label">Active:</span>
-            <span className="profile-name">{activeProfile.profile_name}</span>
-            <span className="profile-topic">({activeProfile.topic})</span>
-          </div>
-        )}
         
         <div className="profiles-list">
           {profiles.map(profile => (
@@ -570,7 +566,7 @@ const App: React.FC = () => {
               className={`profile-card ${profile.is_active ? 'active' : ''}`}
             >
               <div className="profile-info">
-                <h3>{profile.profile_name}</h3>
+                <h3>{profile.profile_name} {profile.is_active && <span className="profile-label">Active</span>}</h3>
                 <p>{profile.topic}</p>
               </div>
               <div className="profile-actions">
