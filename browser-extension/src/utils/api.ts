@@ -6,7 +6,7 @@ export interface Response {
   id?: string;
   title: string;
   content: string;
-  tags?: string[];
+  tags?: string[] | string;
   created_at?: string;
 }
 
@@ -28,7 +28,48 @@ export async function getResponses(): Promise<Response[]> {
   // Fallback to Chrome storage
   return new Promise((resolve) => {
     chrome.storage.local.get(["responses"], (result) => {
-      resolve(result.responses || []);
+      const responses = (result.responses || []).map((r: any) => ({
+        ...r,
+        tags: Array.isArray(r.tags) ? r.tags : (r.tags ? [r.tags] : [])
+      }));
+      resolve(responses);
+    });
+  });
+}
+
+export async function updateResponse(id: string, data: Partial<Response>): Promise<Response> {
+  try {
+    // Try backend with PATCH first, fall back to PUT if needed
+    const result = await fetch(`${API_URL}/api/responses/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+
+    if (result.ok) {
+      const updated = await result.json();
+      // Sync Chrome storage cache
+      const current = await getResponses();
+      const next = current.map((r) => (r.id === id ? { ...r, ...updated } : r));
+      chrome.storage.local.set({ responses: next });
+      return updated;
+    }
+  } catch (error) {
+    console.log("Backend not available, updating local storage");
+  }
+
+  // Fallback to Chrome storage
+  return new Promise((resolve) => {
+    chrome.storage.local.get(["responses"], (result) => {
+      const responses: Response[] = (result.responses || []).map((r: any) => ({
+        ...r,
+        tags: Array.isArray(r.tags) ? r.tags : r.tags ? [r.tags] : [],
+      }));
+      const next = responses.map((r) => (r.id === id ? { ...r, ...data } as Response : r));
+      chrome.storage.local.set({ responses: next }, () => {
+        const updated = next.find((r) => r.id === id)!;
+        resolve(updated);
+      });
     });
   });
 }
@@ -60,6 +101,7 @@ export async function saveResponse(response: Response): Promise<Response> {
     ...response,
     id,
     created_at: new Date().toISOString(),
+    tags: Array.isArray(response.tags) ? response.tags : (response.tags ? [response.tags] : [])
   };
 
   return new Promise((resolve) => {
