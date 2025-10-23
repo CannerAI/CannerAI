@@ -4,3 +4,5 @@ Werkzeug==3.0.1
 psycopg2-binary==2.9.9
 python-dotenv==1.0.0
 flasgger==0.9.7.1
+authlib==1.6.5
+requests-oauthlib==2.0.0
