@@ -310,17 +310,8 @@ const App: React.FC = () => {
         active: true,
         currentWindow: true,
       });
-      if (!tab.id) {
-        setNotification("No Active Tab");
-        return;
-      }
-
-      // Ensure content script is loaded
-      try {
-        await ensureContentScriptLoaded(tab.id);
-      } catch (err) {
-        console.error("Failed to inject content script:", err);
-        setNotification("⚠️ Failed to load on this page");
+      if (!tab?.id) {
+        setNotification("⚠️ No active tab");
         return;
       }
 
