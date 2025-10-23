@@ -13,6 +13,24 @@ const CONFIG = {
 // Track injected elements to avoid duplicates
 const injectedElements = new Set<string>();
 
+// Import SuggestionManager
+import { SuggestionManager } from './suggestion';
+
+// Track suggestion managers for each input element
+const suggestionManagers: { [key: string]: SuggestionManager } = {};
+
+// Helper function to get the actual editable element
+function getEditableElement(element: HTMLElement): HTMLElement | null {
+  // If the element itself is contenteditable, return it
+  if (element.getAttribute && element.getAttribute("contenteditable") === "true") {
+    return element;
+  }
+  
+  // Try to find a contenteditable element within the container
+  const editable = element.querySelector('[contenteditable="true"], textarea, input[type="text"]');
+  return editable as HTMLElement || null;
+}
+
 // Initialize the helper
 function init() {
   console.log("Social Helper: Initializing for all platforms...");
@@ -118,6 +136,17 @@ function addMessageHelpers() {
     // Create minimized pen button
     const penButton = createPenButton(box as HTMLElement);
     positionPenButton(box as HTMLElement, penButton);
+
+    // Create and attach SuggestionManager for auto-suggestions
+    const editableElement = getEditableElement(box as HTMLElement);
+    if (editableElement && !suggestionManagers[editableElement.id]) {
+      try {
+        suggestionManagers[editableElement.id] = new SuggestionManager(editableElement);
+        console.log(`Social Helper: SuggestionManager attached to element ${index + 1}`);
+      } catch (error) {
+        console.error("Canner: Failed to attach SuggestionManager:", error);
+      }
+    }
 
     injectedElements.add(box.id);
     console.log(
