@@ -45,7 +45,7 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["icons/*", "templates/*"],
+      "resources": ["icons/*", "templates/*", "content/*"],
       "matches": [
         "https://www.linkedin.com/*",
         "https://twitter.com/*",

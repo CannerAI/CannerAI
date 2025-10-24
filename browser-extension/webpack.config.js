@@ -46,6 +46,7 @@ module.exports = {
                 { from: 'public/manifest.json', to: 'manifest.json' },
                 { from: 'public/icons', to: 'icons', noErrorOnMissing: true },
                 { from: 'src/content/content.css', to: 'content.css' },
+                { from: 'src/content/quickResponseUI.css', to: 'content/quickResponseUI.css' },
                 { from: 'src/welcome/welcome.css', to: 'welcome.css' }
             ]
         })

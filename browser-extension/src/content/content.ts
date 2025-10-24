@@ -1,6 +1,9 @@
 // Canner content script — injects helper UI into social sites
 console.log("Canner: Content script loaded");
 
+// Import the new Quick Response UI
+import { QuickResponseUI } from './quickResponseUI';
+
 const CONFIG = {
   API_URL: "http://localhost:5000",
   BUTTON_ICON: "💬",
@@ -827,136 +830,33 @@ function createHelperButton(targetBox: HTMLElement): HTMLElement {
   return button;
 }
 
-// Show menu with saved responses
+// Show menu with saved responses - Using new Quick Response UI
 async function showResponseMenu(targetBox: HTMLElement, button: HTMLElement) {
-  // Remove existing menu if any
-  const existingMenu = document.querySelector(".linkedin-helper-menu");
-  if (existingMenu) {
-    existingMenu.remove();
-    return;
-  }
-
-  // Create menu
-  const menu = document.createElement("div");
-  menu.className = "linkedin-helper-menu";
-  menu.innerHTML = '<div class="lh-menu-header">Loading responses...</div>';
-
-  // Position menu near button with smart positioning
-  const rect = button.getBoundingClientRect();
-  const menuHeight = 400; // Estimated menu height
-  const viewportHeight = window.innerHeight;
-  const spaceBelow = viewportHeight - rect.bottom;
-  const spaceAbove = rect.top;
-
-  // Show above button if not enough space below
-  if (spaceBelow < menuHeight && spaceAbove > menuHeight) {
-    menu.style.top = `${rect.top - menuHeight - 10}px`;
+  console.log("Canner: showResponseMenu called for target:", targetBox);
+  
+  // Inject CSS if not already injected
+  if (!document.querySelector('#canner-quick-response-styles')) {
+    console.log("Canner: Injecting CSS styles");
+    const link = document.createElement('link');
+    link.id = 'canner-quick-response-styles';
+    link.rel = 'stylesheet';
+    link.type = 'text/css';
+    link.href = chrome.runtime.getURL('content/quickResponseUI.css');
+    console.log("Canner: CSS URL:", link.href);
+    document.head.appendChild(link);
   } else {
-    menu.style.top = `${rect.bottom + 5}px`;
+    console.log("Canner: CSS already injected");
   }
-
-  // Ensure menu doesn't go off-screen horizontally
-  const menuWidth = 400;
-  const spaceRight = window.innerWidth - rect.left;
-
-  if (spaceRight < menuWidth) {
-    menu.style.left = `${rect.right - menuWidth}px`;
-  } else {
-    menu.style.left = `${rect.left}px`;
-  }
-
-  document.body.appendChild(menu);
 
   try {
-    // Fetch responses from backend or local storage
-    const responses = await fetchResponses();
-
-    if (responses.length === 0) {
-      menu.innerHTML = `
-        <div class="lh-menu-header">No saved responses</div>
-        <div class="lh-menu-item" data-action="create">
-          ➕ Create new response
-        </div>
-      `;
-    } else {
-      menu.innerHTML = `
-        <div class="lh-menu-header">
-          <input type="text" class="lh-search" placeholder="Search responses..." />
-        </div>
-        <div class="lh-menu-items">
-          ${responses
-          .map(
-            (r) => `
-            <div class="lh-menu-item" data-id="${r.id}">
-              <div class="lh-item-title">${r.title}</div>
-              <div class="lh-item-preview">${r.content.substring(
-              0,
-              60
-            )}...</div>
-              ${r.tags
-                ? `<div class="lh-item-tags">${r.tags
-                  .map((t: string) => `<span class="lh-tag">${t}</span>`)
-                  .join("")}</div>`
-                : ""
-              }
-            </div>
-          `
-          )
-          .join("")}
-        </div>
-        <div class="lh-menu-footer">
-          <button class="lh-btn-create">➕ New Response</button>
-        </div>
-      `;
-
-      // Add search functionality
-      const searchInput = menu.querySelector(".lh-search") as HTMLInputElement;
-      searchInput?.addEventListener("input", (e) => {
-        const query = (e.target as HTMLInputElement).value.toLowerCase();
-        const items = menu.querySelectorAll(".lh-menu-item");
-        items.forEach((item) => {
-          const text = item.textContent?.toLowerCase() || "";
-          (item as HTMLElement).style.display = text.includes(query)
-            ? "block"
-            : "none";
-        });
-      });
-
-      // Add click handlers for responses
-      menu.querySelectorAll(".lh-menu-item[data-id]").forEach((item) => {
-        item.addEventListener("click", () => {
-          const responseId = item.getAttribute("data-id");
-          const response = responses.find((r) => r.id === responseId);
-          if (response) {
-            insertText(targetBox, response.content);
-            menu.remove();
-          }
-        });
-      });
-
-      // Handle create new button
-      menu.querySelector(".lh-btn-create")?.addEventListener("click", () => {
-        chrome.runtime.sendMessage({ action: "openPopup" });
-        menu.remove();
-      });
-    }
+    // Create and show the new UI
+    console.log("Canner: Creating QuickResponseUI instance");
+    const quickResponseUI = new QuickResponseUI(targetBox);
+    await quickResponseUI.showMenu();
+    console.log("Canner: Menu should be visible now");
   } catch (error) {
-    console.error("Canner: Error fetching responses:", error);
-    menu.innerHTML = `
-      <div class="lh-menu-header error">Failed to load responses</div>
-      <div class="lh-menu-item">Please check your connection</div>
-    `;
+    console.error("Canner: Error showing menu:", error);
   }
-
-  // Close menu when clicking outside
-  setTimeout(() => {
-    document.addEventListener("click", function closeMenu(e) {
-      if (!menu.contains(e.target as Node) && e.target !== button) {
-        menu.remove();
-        document.removeEventListener("click", closeMenu);
-      }
-    });
-  }, 100);
 }
 
 // Fetch responses from backend or Chrome storage
