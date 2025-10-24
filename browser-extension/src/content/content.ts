@@ -862,7 +862,7 @@ async function showResponseMenu(targetBox: HTMLElement, button: HTMLElement) {
     } else {
       menu.innerHTML = `
         <div class="lh-menu-header">
-          <input type="text" class="lh-search" placeholder="Search responsesNew..." />
+          <input type="text" class="lh-search" placeholder="Search responses..." />
         </div>
         <div class="lh-menu-items">
           ${responses
