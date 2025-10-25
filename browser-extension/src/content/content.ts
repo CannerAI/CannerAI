@@ -468,6 +468,24 @@ async function fetchLocalSuggestions(prefix: string): Promise<any[]> {
   });
 }
 
+// Import SuggestionManager
+import { SuggestionManager } from './suggestion';
+
+// Track suggestion managers for each input element
+const suggestionManagers: { [key: string]: SuggestionManager } = {};
+
+// Helper function to get the actual editable element
+function getEditableElement(element: HTMLElement): HTMLElement | null {
+  // If the element itself is contenteditable, return it
+  if (element.getAttribute && element.getAttribute("contenteditable") === "true") {
+    return element;
+  }
+  
+  // Try to find a contenteditable element within the container
+  const editable = element.querySelector('[contenteditable="true"], textarea, input[type="text"]');
+  return editable as HTMLElement || null;
+}
+
 // Initialize the helper
 function init() {
   console.log("Social Helper: Initializing for all platforms...");
@@ -595,28 +613,15 @@ function addMessageHelpers() {
     const penButton = createPenButton(box as HTMLElement);
     positionPenButton(box as HTMLElement, penButton);
 
-    // Resolve the actual editable element inside this box (Twitter often wraps the real
-    // contenteditable inside additional divs). Attach the SuggestionManager to the
-    // actual editable so insertion/replacement logic runs against the real editor.
-    const resolvedEditable = ((): HTMLElement => {
-      const el = box as HTMLElement;
-      if (el.getAttribute && el.getAttribute("contenteditable") === "true") return el;
-      const inner = el.querySelector?.('[contenteditable="true"], textarea, input[type="text"]') as HTMLElement | null;
-      return inner || el;
-    })();
-
-    // Ensure resolvedEditable has an id we can use to track managers
-    if (!resolvedEditable.id) {
-      resolvedEditable.id = `${box.id}-editable`;
-    }
-
-    // Attach InlineSuggestionManager for inline completions to the resolved editable
-    try {
-      if (!suggestionManagers[resolvedEditable.id]) {
-        suggestionManagers[resolvedEditable.id] = new InlineSuggestionManager(resolvedEditable as HTMLElement);
+    // Create and attach SuggestionManager for auto-suggestions
+    const editableElement = getEditableElement(box as HTMLElement);
+    if (editableElement && !suggestionManagers[editableElement.id]) {
+      try {
+        suggestionManagers[editableElement.id] = new SuggestionManager(editableElement);
+        console.log(`Social Helper: SuggestionManager attached to element ${index + 1}`);
+      } catch (error) {
+        console.error("Canner: Failed to attach SuggestionManager:", error);
       }
-    } catch (err) {
-      console.error("Canner: Failed to create InlineSuggestionManager:", err);
     }
 
     injectedElements.add(box.id);
