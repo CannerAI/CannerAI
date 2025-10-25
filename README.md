@@ -9,7 +9,7 @@
 
 ## ✨ Features
 - Select from a variety of pre-defined response templates
-- Format linked post with Ease
+- Format linkedin post with Ease
 
 ## 📄 **Contributing**
 
