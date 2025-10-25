@@ -827,23 +827,60 @@ function createHelperButton(targetBox: HTMLElement): HTMLElement {
   return button;
 }
 
-// Show menu with saved responses
+// Show menu with saved responses - Enhanced with popup-style design
 async function showResponseMenu(targetBox: HTMLElement, button: HTMLElement) {
   // Remove existing menu if any
-  const existingMenu = document.querySelector(".linkedin-helper-menu");
+  const existingMenu = document.querySelector(".social-helper-menu");
   if (existingMenu) {
     existingMenu.remove();
     return;
   }
 
-  // Create menu
+  // Load theme preference
+  const result = await chrome.storage.sync.get(["theme"]);
+  const isDarkMode = result.theme === "dark";
+
+  // Create menu with popup-style design
   const menu = document.createElement("div");
-  menu.className = "linkedin-helper-menu";
-  menu.innerHTML = '<div class="lh-menu-header">Loading responses...</div>';
+  menu.className = "social-helper-menu";
+  menu.setAttribute("data-theme", isDarkMode ? "dark" : "light");
+  menu.innerHTML = `
+    <div class="sh-menu-header">
+      <div class="sh-menu-header-content">
+        <div class="sh-menu-brand">
+          <div class="sh-menu-logo">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path d="M12 2L2 7L12 12L22 7L12 2Z" fill="currentColor" opacity="0.9"/>
+              <path d="M2 17L12 22L22 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+              <path d="M2 12L12 17L22 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+            </svg>
+          </div>
+          <div class="sh-menu-title">
+            <h3>Quick Responses</h3>
+            <p class="sh-menu-subtitle">Loading responses...</p>
+          </div>
+        </div>
+        <div class="sh-menu-actions">
+          <button class="sh-theme-toggle" aria-label="Toggle dark mode">
+            ${isDarkMode ? `
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="5"/>
+                <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+              </svg>
+            ` : `
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+              </svg>
+            `}
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
 
   // Position menu near button with smart positioning
   const rect = button.getBoundingClientRect();
-  const menuHeight = 400; // Estimated menu height
+  const menuHeight = 500; // Estimated menu height
   const viewportHeight = window.innerHeight;
   const spaceBelow = viewportHeight - rect.bottom;
   const spaceAbove = rect.top;
@@ -856,7 +893,7 @@ async function showResponseMenu(targetBox: HTMLElement, button: HTMLElement) {
   }
 
   // Ensure menu doesn't go off-screen horizontally
-  const menuWidth = 400;
+  const menuWidth = 420;
   const spaceRight = window.innerWidth - rect.left;
 
   if (spaceRight < menuWidth) {
@@ -867,75 +904,229 @@ async function showResponseMenu(targetBox: HTMLElement, button: HTMLElement) {
 
   document.body.appendChild(menu);
 
+  // Add theme toggle functionality
+  const themeToggle = menu.querySelector(".sh-theme-toggle") as HTMLButtonElement;
+  let currentTheme = isDarkMode ? "dark" : "light";
+  
+  themeToggle?.addEventListener("click", async () => {
+    currentTheme = currentTheme === "dark" ? "light" : "dark";
+    menu.setAttribute("data-theme", currentTheme);
+    
+    // Save theme preference to storage
+    await chrome.storage.sync.set({ theme: currentTheme });
+    
+    // Update theme toggle icon
+    themeToggle.innerHTML = currentTheme === "dark" ? `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <circle cx="12" cy="12" r="5"/>
+        <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+      </svg>
+    ` : `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+      </svg>
+    `;
+  });
+
   try {
     // Fetch responses from backend or local storage
     const responses = await fetchResponses();
+    const subtitle = menu.querySelector(".sh-menu-subtitle") as HTMLElement;
+    
+    // Update subtitle with response count
+    if (subtitle) {
+      subtitle.textContent = `${responses.length} ${responses.length === 1 ? 'response' : 'responses'}`;
+    }
 
     if (responses.length === 0) {
-      menu.innerHTML = `
-        <div class="lh-menu-header">No saved responses</div>
-        <div class="lh-menu-item" data-action="create">
-          ➕ Create new response
+      // Add search and empty state
+      const searchContainer = document.createElement("div");
+      searchContainer.className = "sh-search-container";
+      searchContainer.innerHTML = `
+        <svg class="sh-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <circle cx="11" cy="11" r="8"/>
+          <path d="m21 21-4.35-4.35"/>
+        </svg>
+        <input class="sh-search" type="text" placeholder="Search by title, content, or tags..." disabled>
+      `;
+      menu.appendChild(searchContainer);
+
+      const menuItems = document.createElement("div");
+      menuItems.className = "sh-menu-items";
+      menuItems.innerHTML = `
+        <div class="sh-empty-state">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="12" y1="18" x2="12" y2="12"/>
+            <line x1="9" y1="15" x2="15" y2="15"/>
+          </svg>
+          <h3>No saved responses</h3>
+          <p>Create your first response to get started</p>
         </div>
       `;
+      menu.appendChild(menuItems);
     } else {
-      menu.innerHTML = `
-        <div class="lh-menu-header">
-          <input type="text" class="lh-search" placeholder="Search responses..." />
-        </div>
-        <div class="lh-menu-items">
-          ${responses
-          .map(
-            (r) => `
-            <div class="lh-menu-item" data-id="${r.id}">
-              <div class="lh-item-title">${r.title}</div>
-              <div class="lh-item-preview">${r.content.substring(
-              0,
-              60
-            )}...</div>
-              ${r.tags
-                ? `<div class="lh-item-tags">${r.tags
-                  .map((t: string) => `<span class="lh-tag">${t}</span>`)
-                  .join("")}</div>`
-                : ""
-              }
-            </div>
-          `
-          )
-          .join("")}
-        </div>
-        <div class="lh-menu-footer">
-          <button class="lh-btn-create">➕ New Response</button>
-        </div>
+      // Add search container
+      const searchContainer = document.createElement("div");
+      searchContainer.className = "sh-search-container";
+      searchContainer.innerHTML = `
+        <svg class="sh-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <circle cx="11" cy="11" r="8"/>
+          <path d="m21 21-4.35-4.35"/>
+        </svg>
+        <input class="sh-search" type="text" placeholder="Search by title, content, or tags...">
+        <button class="sh-search-clear">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M18 6L6 18M6 6l12 12"/>
+          </svg>
+        </button>
       `;
+      menu.appendChild(searchContainer);
+
+      // Add menu items container
+      const menuItems = document.createElement("div");
+      menuItems.className = "sh-menu-items";
+      
+      responses.forEach((response) => {
+        const item = document.createElement("div");
+        item.className = "sh-menu-item";
+        item.setAttribute("data-id", response.id);
+        
+        const tags = Array.isArray(response.tags) ? response.tags : [];
+        const tagElements = tags.slice(0, 2).map((tag: string) => 
+          `<span class="sh-tag">${tag}</span>`
+        ).join('');
+        
+        const moreTags = tags.length > 2 ? `<span class="sh-tag-more">+${tags.length - 2}</span>` : '';
+        
+        item.innerHTML = `
+          <div class="sh-item-header">
+            <h4 class="sh-item-title">${response.title}</h4>
+            <div class="sh-item-tags">
+              ${tagElements}
+              ${moreTags}
+            </div>
+          </div>
+          <p class="sh-item-preview">${response.content}</p>
+          <div class="sh-item-actions">
+            <button class="sh-btn-action sh-btn-insert" data-content="${response.content.replace(/"/g, '"')}">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M12 5v14M5 12h14"/>
+              </svg>
+              Insert
+            </button>
+            <button class="sh-btn-action sh-btn-edit" data-id="${response.id}">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z"/>
+                <path d="M14.06 4.94l3.75 3.75"/>
+              </svg>
+              Edit
+            </button>
+            <button class="sh-btn-action sh-btn-delete" data-id="${response.id}">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="3 6 5 6 21 6"/>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+              </svg>
+              Delete
+            </button>
+          </div>
+        `;
+        
+        menuItems.appendChild(item);
+      });
+      
+      menu.appendChild(menuItems);
+
+      // Add footer
+      const footer = document.createElement("div");
+      footer.className = "sh-menu-footer";
+      footer.innerHTML = `
+        <button class="sh-btn-create">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M12 5v14M5 12h14"/>
+          </svg>
+          New Response
+        </button>
+      `;
+      menu.appendChild(footer);
 
       // Add search functionality
-      const searchInput = menu.querySelector(".lh-search") as HTMLInputElement;
+      const searchInput = menu.querySelector(".sh-search") as HTMLInputElement;
+      const searchClear = menu.querySelector(".sh-search-clear") as HTMLButtonElement;
+      
       searchInput?.addEventListener("input", (e) => {
         const query = (e.target as HTMLInputElement).value.toLowerCase();
-        const items = menu.querySelectorAll(".lh-menu-item");
+        const items = menu.querySelectorAll(".sh-menu-item");
+        let visibleCount = 0;
+        
         items.forEach((item) => {
           const text = item.textContent?.toLowerCase() || "";
-          (item as HTMLElement).style.display = text.includes(query)
-            ? "block"
-            : "none";
+          const isVisible = text.includes(query);
+          (item as HTMLElement).style.display = isVisible ? "block" : "none";
+          if (isVisible) visibleCount++;
         });
+        
+        // Update subtitle with filtered count
+        if (subtitle) {
+          subtitle.textContent = `${visibleCount} ${visibleCount === 1 ? 'response' : 'responses'}${query ? ' filtered' : ''}`;
+        }
+        
+        // Show/hide clear button
+        if (searchClear) {
+          searchClear.style.display = query ? "flex" : "none";
+        }
       });
 
-      // Add click handlers for responses
-      menu.querySelectorAll(".lh-menu-item[data-id]").forEach((item) => {
-        item.addEventListener("click", () => {
-          const responseId = item.getAttribute("data-id");
-          const response = responses.find((r) => r.id === responseId);
-          if (response) {
-            insertText(targetBox, response.content);
+      searchClear?.addEventListener("click", () => {
+        searchInput.value = "";
+        searchInput.dispatchEvent(new Event('input'));
+      });
+
+      // Add click handlers for insert buttons
+      menu.querySelectorAll(".sh-btn-insert").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const content = btn.getAttribute("data-content");
+          if (content) {
+            insertText(targetBox, content);
             menu.remove();
           }
         });
       });
 
+      // Add click handlers for edit buttons
+      menu.querySelectorAll(".sh-btn-edit").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const responseId = btn.getAttribute("data-id");
+          if (responseId) {
+            chrome.runtime.sendMessage({ action: "openPopup", editId: responseId });
+            menu.remove();
+          }
+        });
+      });
+
+      // Add click handlers for delete buttons
+      menu.querySelectorAll(".sh-btn-delete").forEach((btn) => {
+        btn.addEventListener("click", async (e) => {
+          e.stopPropagation();
+          const responseId = btn.getAttribute("data-id");
+          if (responseId && confirm("Delete this response permanently?")) {
+            try {
+              await deleteResponse(responseId);
+              menu.remove();
+              showResponseMenu(targetBox, button); // Refresh menu
+            } catch (error) {
+              console.error("Failed to delete response:", error);
+              alert("Failed to delete response. Please try again.");
+            }
+          }
+        });
+      });
+
       // Handle create new button
-      menu.querySelector(".lh-btn-create")?.addEventListener("click", () => {
+      menu.querySelector(".sh-btn-create")?.addEventListener("click", () => {
         chrome.runtime.sendMessage({ action: "openPopup" });
         menu.remove();
       });
@@ -943,8 +1134,25 @@ async function showResponseMenu(targetBox: HTMLElement, button: HTMLElement) {
   } catch (error) {
     console.error("Canner: Error fetching responses:", error);
     menu.innerHTML = `
-      <div class="lh-menu-header error">Failed to load responses</div>
-      <div class="lh-menu-item">Please check your connection</div>
+      <div class="sh-menu-header error">
+        <div class="sh-menu-header-content">
+          <div class="sh-menu-title">
+            <h3>Error</h3>
+            <p class="sh-menu-subtitle">Failed to load responses</p>
+          </div>
+        </div>
+      </div>
+      <div class="sh-menu-items">
+        <div class="sh-empty-state">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="12"/>
+            <line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          <h3>Failed to load responses</h3>
+          <p>Please check your connection and try again</p>
+        </div>
+      </div>
     `;
   }
 
@@ -957,6 +1165,375 @@ async function showResponseMenu(targetBox: HTMLElement, button: HTMLElement) {
       }
     });
   }, 100);
+}
+
+// Show create modal for new response
+function showCreateModal(targetBox: HTMLElement, button: HTMLElement, menu: HTMLElement) {
+  // Create modal overlay
+  const modalOverlay = document.createElement("div");
+  modalOverlay.className = "sh-modal-overlay";
+  modalOverlay.setAttribute("data-theme", menu.getAttribute("data-theme") || "light");
+
+  modalOverlay.innerHTML = `
+    <div class="sh-modal">
+      <div class="sh-modal-header">
+        <h2>Create Response</h2>
+        <button class="sh-modal-close" aria-label="Close modal">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M18 6L6 18M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+      <div class="sh-modal-body">
+        <div class="sh-form-group">
+          <label for="sh-create-title" class="sh-form-label">Title</label>
+          <input id="sh-create-title" class="sh-form-input" type="text" placeholder="e.g., Introduction message">
+        </div>
+        <div class="sh-form-group">
+          <label for="sh-create-content" class="sh-form-label">Content</label>
+          <textarea id="sh-create-content" class="sh-form-textarea" placeholder="Enter your response message..." rows="5"></textarea>
+        </div>
+        <div class="sh-form-group">
+          <label for="sh-create-tags" class="sh-form-label">Tags</label>
+          <input id="sh-create-tags" class="sh-form-input" type="text" placeholder="e.g., greeting, professional (comma separated)">
+        </div>
+      </div>
+      <div class="sh-modal-footer">
+        <button class="sh-btn-secondary" id="sh-cancel-create">Cancel</button>
+        <button class="sh-btn-primary" id="sh-save-create">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+            <polyline points="17 21 17 13 7 13 7 21"/>
+          </svg>
+          Save Response
+        </button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modalOverlay);
+
+  // Focus on title input
+  setTimeout(() => {
+    const titleInput = document.getElementById("sh-create-title") as HTMLInputElement;
+    titleInput?.focus();
+  }, 100);
+
+  // Handle close
+  const closeBtn = modalOverlay.querySelector(".sh-modal-close") as HTMLButtonElement;
+  const cancelBtn = modalOverlay.querySelector("#sh-cancel-create") as HTMLButtonElement;
+
+  const closeModal = () => {
+    modalOverlay.remove();
+  };
+
+  closeBtn.addEventListener("click", closeModal);
+  cancelBtn.addEventListener("click", closeModal);
+
+  // Close on overlay click
+  modalOverlay.addEventListener("click", (e) => {
+    if (e.target === modalOverlay) {
+      closeModal();
+    }
+  });
+
+  // Handle save
+  const saveBtn = modalOverlay.querySelector("#sh-save-create") as HTMLButtonElement;
+  saveBtn.addEventListener("click", async () => {
+    const title = (document.getElementById("sh-create-title") as HTMLInputElement).value.trim();
+    const content = (document.getElementById("sh-create-content") as HTMLTextAreaElement).value.trim();
+    const tags = (document.getElementById("sh-create-tags") as HTMLInputElement).value.trim();
+
+    if (!title || !content) {
+      alert("Please fill in title and content");
+      return;
+    }
+
+    try {
+      saveBtn.disabled = true;
+      saveBtn.innerHTML = `
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M21 12a9 9 0 1 1-9 9"/>
+          <path d="M9 20a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2v-6"/>
+        </svg>
+        Saving...
+      `;
+
+      // Create new response
+      await createResponse({
+        title,
+        content,
+        tags: tags.split(",").map(t => t.trim()).filter(Boolean)
+      });
+
+      // Show success message
+      showToast("✅ Response created successfully!");
+      
+      // Close modal and menu
+      closeModal();
+      menu.remove();
+      
+      // Refresh menu to show new data
+      setTimeout(() => {
+        showResponseMenu(targetBox, button);
+      }, 300);
+
+    } catch (error) {
+      console.error("Failed to create response:", error);
+      alert("Failed to create response. Please try again.");
+    } finally {
+      saveBtn.disabled = false;
+      saveBtn.innerHTML = `
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+          <polyline points="17 21 17 13 7 13 7 21"/>
+        </svg>
+        Save Response
+      `;
+    }
+  });
+}
+
+// Create response function
+async function createResponse(data: any): Promise<void> {
+  try {
+    // Try backend first
+    const response = await fetch(`${CONFIG.API_URL}/api/responses`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    
+    if (response.ok) {
+      return;
+    }
+  } catch (error) {
+    console.log("Canner: Backend not available for create, using local storage");
+  }
+
+  // Fallback to Chrome storage
+  return new Promise((resolve, reject) => {
+    chrome.storage.local.get(["responses"], (result) => {
+      const responses = result.responses || [];
+      const newResponse = {
+        id: Date.now().toString(),
+        ...data,
+        created_at: new Date().toISOString()
+      };
+      
+      responses.push(newResponse);
+      
+      chrome.storage.local.set({ responses }, () => {
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message));
+        } else {
+          resolve();
+        }
+      });
+    });
+  });
+}
+
+// Show edit modal for response
+function showEditModal(response: any, targetBox: HTMLElement, button: HTMLElement, menu: HTMLElement) {
+  // Create modal overlay
+  const modalOverlay = document.createElement("div");
+  modalOverlay.className = "sh-modal-overlay";
+  modalOverlay.setAttribute("data-theme", menu.getAttribute("data-theme") || "light");
+
+  const tags = Array.isArray(response.tags) ? response.tags.join(", ") : response.tags || "";
+
+  modalOverlay.innerHTML = `
+    <div class="sh-modal">
+      <div class="sh-modal-header">
+        <h2>Edit Response</h2>
+        <button class="sh-modal-close" aria-label="Close modal">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M18 6L6 18M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+      <div class="sh-modal-body">
+        <div class="sh-form-group">
+          <label for="sh-edit-title" class="sh-form-label">Title</label>
+          <input id="sh-edit-title" class="sh-form-input" type="text" placeholder="e.g., Introduction message" value="${response.title || ""}">
+        </div>
+        <div class="sh-form-group">
+          <label for="sh-edit-content" class="sh-form-label">Content</label>
+          <textarea id="sh-edit-content" class="sh-form-textarea" placeholder="Enter your response message..." rows="5">${response.content || ""}</textarea>
+        </div>
+        <div class="sh-form-group">
+          <label for="sh-edit-tags" class="sh-form-label">Tags</label>
+          <input id="sh-edit-tags" class="sh-form-input" type="text" placeholder="e.g., greeting, professional (comma separated)" value="${tags}">
+        </div>
+      </div>
+      <div class="sh-modal-footer">
+        <button class="sh-btn-secondary" id="sh-cancel-edit">Cancel</button>
+        <button class="sh-btn-primary" id="sh-save-edit">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+            <polyline points="17 21 17 13 7 13 7 21"/>
+          </svg>
+          Save Changes
+        </button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modalOverlay);
+
+  // Focus on title input
+  setTimeout(() => {
+    const titleInput = document.getElementById("sh-edit-title") as HTMLInputElement;
+    titleInput?.focus();
+    titleInput?.select();
+  }, 100);
+
+  // Handle close
+  const closeBtn = modalOverlay.querySelector(".sh-modal-close") as HTMLButtonElement;
+  const cancelBtn = modalOverlay.querySelector("#sh-cancel-edit") as HTMLButtonElement;
+
+  const closeModal = () => {
+    modalOverlay.remove();
+  };
+
+  closeBtn.addEventListener("click", closeModal);
+  cancelBtn.addEventListener("click", closeModal);
+
+  // Close on overlay click
+  modalOverlay.addEventListener("click", (e) => {
+    if (e.target === modalOverlay) {
+      closeModal();
+    }
+  });
+
+  // Handle save
+  const saveBtn = modalOverlay.querySelector("#sh-save-edit") as HTMLButtonElement;
+  saveBtn.addEventListener("click", async () => {
+    const title = (document.getElementById("sh-edit-title") as HTMLInputElement).value.trim();
+    const content = (document.getElementById("sh-edit-content") as HTMLTextAreaElement).value.trim();
+    const tags = (document.getElementById("sh-edit-tags") as HTMLInputElement).value.trim();
+
+    if (!title || !content) {
+      alert("Please fill in title and content");
+      return;
+    }
+
+    try {
+      saveBtn.disabled = true;
+      saveBtn.innerHTML = `
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M21 12a9 9 0 1 1-9 9"/>
+          <path d="M9 20a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2v-6"/>
+        </svg>
+        Saving...
+      `;
+
+      // Update response
+      await updateResponse(response.id, {
+        title,
+        content,
+        tags: tags.split(",").map(t => t.trim()).filter(Boolean)
+      });
+
+      // Show success message
+      showToast("✅ Response updated successfully!");
+      
+      // Close modal and menu
+      closeModal();
+      menu.remove();
+      
+      // Refresh menu to show updated data
+      setTimeout(() => {
+        showResponseMenu(targetBox, button);
+      }, 300);
+
+    } catch (error) {
+      console.error("Failed to update response:", error);
+      alert("Failed to update response. Please try again.");
+    } finally {
+      saveBtn.disabled = false;
+      saveBtn.innerHTML = `
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+          <polyline points="17 21 17 13 7 13 7 21"/>
+        </svg>
+        Save Changes
+      `;
+    }
+  });
+}
+
+// Update response function
+async function updateResponse(id: string, data: Partial<any>): Promise<void> {
+  try {
+    // Try backend first
+    const response = await fetch(`${CONFIG.API_URL}/api/responses/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    
+    if (response.ok) {
+      return;
+    }
+  } catch (error) {
+    console.log("Canner: Backend not available for update, using local storage");
+  }
+
+  // Fallback to Chrome storage
+  return new Promise((resolve, reject) => {
+    chrome.storage.local.get(["responses"], (result) => {
+      const responses = result.responses || [];
+      const index = responses.findIndex((r: any) => r.id === id);
+      
+      if (index !== -1) {
+        responses[index] = { ...responses[index], ...data };
+        
+        chrome.storage.local.set({ responses }, () => {
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else {
+            resolve();
+          }
+        });
+      } else {
+        reject(new Error("Response not found"));
+      }
+    });
+  });
+}
+
+// Add delete response function
+async function deleteResponse(id: string): Promise<void> {
+  try {
+    // Try backend first
+    const response = await fetch(`${CONFIG.API_URL}/api/responses/${id}`, {
+      method: "DELETE",
+    });
+    
+    if (response.ok) {
+      return;
+    }
+  } catch (error) {
+    console.log("Canner: Backend not available for delete, using local storage");
+  }
+
+  // Fallback to Chrome storage
+  return new Promise((resolve, reject) => {
+    chrome.storage.local.get(["responses"], (result) => {
+      const responses = result.responses || [];
+      const filteredResponses = responses.filter((r: any) => r.id !== id);
+      
+      chrome.storage.local.set({ responses: filteredResponses }, () => {
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message));
+        } else {
+          resolve();
+        }
+      });
+    });
+  });
 }
 
 // Fetch responses from backend or Chrome storage
