@@ -2285,18 +2285,3 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   return true;
 });
 
-// Listen for messages from popup or background script
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.action === "insertResponse") {
-    const activeElement = document.activeElement as HTMLElement;
-    if (
-      activeElement &&
-      activeElement.getAttribute("contenteditable") === "true"
-    ) {
-      insertText(activeElement, message.content);
-      sendResponse({ success: true });
-    } else {
-      sendResponse({ success: false, error: "No active input box" });
-    }
-  }
-})
