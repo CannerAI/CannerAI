@@ -103,18 +103,35 @@ class InlineSuggestionManager {
         return;
       }
 
-      // Find suggestions that start with the current text
+      // Enhanced suggestion logic: show suggestions for any partial match
       const matches = suggestions.filter(s => {
         const content = (s.content || s.title || "").toLowerCase();
-        const currentWords = currentText.toLowerCase().split(/\s+/);
+        const currentLower = currentText.toLowerCase();
         
-        // Only show suggestions for first two words
-        if (currentWords.length <= 2) {
-          return content.startsWith(currentText.toLowerCase());
-        } else {
-          // Don't show suggestions after two words are typed
-          return false;
+        // Check if any saved message starts with the current text
+        if (content.startsWith(currentLower)) {
+          return true;
         }
+        
+        // Check if current text matches any part of a saved message (word-level matching)
+        const currentWords = currentLower.split(/\s+/).filter(word => word.length > 0);
+        const savedWords = content.split(/\s+/);
+        
+        // Find if current text matches the beginning of any sequence in the saved message
+        for (let i = 0; i <= savedWords.length - currentWords.length; i++) {
+          let matches = true;
+          for (let j = 0; j < currentWords.length; j++) {
+            if (!savedWords[i + j].startsWith(currentWords[j])) {
+              matches = false;
+              break;
+            }
+          }
+          if (matches) {
+            return true;
+          }
+        }
+        
+        return false;
       });
 
       if (matches.length === 0) {
@@ -179,10 +196,32 @@ class InlineSuggestionManager {
       chrome.storage.local.get(['responses'], (result) => {
         const responses = result.responses || [];
         const prefixLower = prefix.toLowerCase();
+        const currentWords = prefixLower.split(/\s+/).filter(word => word.length > 0);
 
         const matches = responses.filter((response: any) => {
           const content = (response.content || response.title || "").toLowerCase();
-          return content.startsWith(prefixLower);
+          const savedWords = content.split(/\s+/);
+          
+          // Check if any saved message starts with the current text
+          if (content.startsWith(prefixLower)) {
+            return true;
+          }
+          
+          // Check if current text matches any part of a saved message (word-level matching)
+          for (let i = 0; i <= savedWords.length - currentWords.length; i++) {
+            let matches = true;
+            for (let j = 0; j < currentWords.length; j++) {
+              if (!savedWords[i + j].startsWith(currentWords[j])) {
+                matches = false;
+                break;
+              }
+            }
+            if (matches) {
+              return true;
+            }
+          }
+          
+          return false;
         });
 
         resolve(matches);
