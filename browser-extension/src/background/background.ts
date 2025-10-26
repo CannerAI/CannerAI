@@ -28,8 +28,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log("Background received message:", message);
 
   if (message.action === "openPopup") {
-    chrome.action.openPopup();
-    sendResponse({ success: true });
+    if (message.editId) {
+      // Store the edit ID to be picked up by popup
+      chrome.storage.session.set({ editId: message.editId }, () => {
+        chrome.action.openPopup();
+        sendResponse({ success: true });
+      });
+    } else {
+      // Clear any existing edit ID
+      chrome.storage.session.remove(["editId"], () => {
+        chrome.action.openPopup();
+        sendResponse({ success: true });
+      });
+    }
   }
 
   return true; // Keep message channel open for async response
