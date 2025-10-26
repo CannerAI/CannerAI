@@ -25,6 +25,7 @@ const App: React.FC = () => {
   useEffect(() => {
     load();
     loadTheme();
+    loadEditId();
   }, []);
 
   useEffect(() => {
@@ -46,6 +47,24 @@ const App: React.FC = () => {
     const result = await chrome.storage.sync.get(["theme"]);
     const theme = result.theme || "light";
     setIsDarkMode(theme === "dark");
+  }
+
+  async function loadEditId() {
+    const result = await chrome.storage.session.get(["editId"]);
+    if (result.editId) {
+      // Find the response to edit
+      try {
+        const responses = await getResponses();
+        const response = responses.find((r) => r.id === result.editId);
+        if (response) {
+          openEditModal(response);
+        }
+      } catch (error) {
+        console.error("Failed to load response for editing:", error);
+      }
+      // Clear the edit ID
+      chrome.storage.session.remove(["editId"]);
+    }
   }
 
   async function load() {
