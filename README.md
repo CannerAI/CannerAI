@@ -9,7 +9,13 @@
 
 ## ✨ Features
 - Select from a variety of pre-defined response templates
-- Format linked post with Ease
+- Format linkedin post with Ease
+
+## 🏗 Architecture
+
+Here’s an overview of how **Canner** works internally:
+
+![Architecture Diagram](./docs/architecture-diagram.svg)
 
 ## 📄 **Contributing**
 
