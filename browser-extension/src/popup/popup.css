@@ -263,8 +263,8 @@ body {
 }
 
 .brand-logo {
-  width: 40px;
-  height: 40px;
+  width: 4rem; /*40px*/
+  height: 4rem; /*40px*/
   border-radius: var(--radius-sm);
   background: linear-gradient(135deg, var(--accent) 0%, var(--accent-hover) 100%);
   display: flex;
