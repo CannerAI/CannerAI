@@ -4,6 +4,22 @@
 
 Please include a summary of the change and which issue is fixed. Please also include relevant motivation and context. List any dependencies that are required for this change.
 
+## Key Features
+
+Mention key features of this Pull Request (in Bullet Points)
+
+- [] Feature 1
+- [] Feature 2
+- [] Feature 3
+
+## Benefits
+
+Mention benefits of this Pull Request (in Bullet Points)
+
+- [] Benefit 1
+- [] Benefit 2
+- [] Benefit 3
+  
 Fixes #(issue)
 
 ## Type of Change
