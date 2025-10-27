@@ -1,28 +1,21 @@
 import React, { useEffect, useState } from "react";
 import {
-  activateProfile,
-  createProfile,
-  deleteProfile,
   deleteResponse,
-  getActiveProfile,
   getCurrentUser,
-  getProfiles,
   getResponses,
   logout,
-  Profile,
-  Response, saveResponse, updateResponse,
+  Response,
+  saveResponse,
+  updateResponse,
   User
 } from "../utils/api";
 
 const App: React.FC = () => {
   const [responses, setResponses] = useState<Response[]>([]);
-  const [profiles, setProfiles] = useState<Profile[]>([]);
-  const [activeProfile, setActiveProfile] = useState<Profile | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const [showProfileModal, setShowProfileModal] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [notification, setNotification] = useState<string>("");
@@ -35,10 +28,6 @@ const App: React.FC = () => {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [tags, setTags] = useState("");
-  
-  // Profile form state
-  const [profileName, setProfileName] = useState("");
-  const [profileTopic, setProfileTopic] = useState("");
 
   useEffect(() => {
     loadUser();
@@ -74,15 +63,6 @@ const App: React.FC = () => {
     try {
       const user = await getCurrentUser();
       setCurrentUser(user);
-      
-      if (user) {
-        // Load profiles for authenticated user
-        const profilesData = await getProfiles();
-        setProfiles(profilesData);
-        
-        const active = await getActiveProfile();
-        setActiveProfile(active);
-      }
     } catch (e) {
       console.error(e);
     }
@@ -143,12 +123,6 @@ const App: React.FC = () => {
     setShowModal(true);
   }
 
-  function openCreateProfileModal() {
-    setProfileName("");
-    setProfileTopic("");
-    setShowProfileModal(true);
-  }
-
   const filtered = responses.filter((r) => {
     if (!query.trim()) return true;
     const q = query.toLowerCase();
@@ -171,7 +145,6 @@ const App: React.FC = () => {
       title: title.trim(),
       content: content.trim(),
       tags: tags.split(",").map((t) => t.trim()).filter(Boolean),
-      profile_id: activeProfile?.id
     };
 
     if (isEditing && editingId) {
@@ -217,84 +190,6 @@ const App: React.FC = () => {
       } finally {
         setSaving(false);
       }
-    }
-  }
-
-  async function handleSaveProfile() {
-    if (!profileName.trim() || !profileTopic.trim()) {
-      setNotification("⚠️ Profile name and topic are required");
-      return;
-    }
-    
-    try {
-      const newProfile = await createProfile({
-        user_id: currentUser?.id || '',
-        profile_name: profileName.trim(),
-        topic: profileTopic.trim(),
-        is_active: profiles.length === 0 // Make first profile active
-      });
-      
-      setProfiles(prev => [...prev, newProfile]);
-      
-      if (profiles.length === 0) {
-        setActiveProfile(newProfile);
-      }
-      
-      setShowProfileModal(false);
-      setProfileName("");
-      setProfileTopic("");
-      setNotification("✓ Profile created successfully");
-    } catch (e) {
-      console.error(e);
-      setNotification("⚠️ Failed to create profile");
-    }
-  }
-
-  async function handleActivateProfile(profile: Profile) {
-    try {
-      const updatedProfile = await activateProfile(profile.id);
-      
-      // Update profiles list
-      setProfiles(prev => prev.map(p => 
-        p.id === profile.id ? { ...p, is_active: true } : { ...p, is_active: false }
-      ));
-      
-      setActiveProfile(updatedProfile);
-      
-      // Reload responses for the new active profile
-      await load();
-      
-      setNotification("✓ Profile activated");
-    } catch (e) {
-      console.error(e);
-      setNotification("⚠️ Failed to activate profile");
-    }
-  }
-
-  async function handleDeleteProfile(profileId: string) {
-    if (!confirm("Delete this profile permanently?")) return;
-    
-    try {
-      await deleteProfile(profileId);
-      
-      // Update profiles list
-      setProfiles(prev => prev.filter(p => p.id !== profileId));
-      
-      // If we deleted the active profile, set a new active profile
-      if (activeProfile?.id === profileId) {
-        const remainingProfiles = profiles.filter(p => p.id !== profileId);
-        if (remainingProfiles.length > 0) {
-          const newActive = remainingProfiles[0];
-          await handleActivateProfile(newActive);
-        } else {
-          setActiveProfile(null);
-        }
-      }
-      
-      setNotification("✓ Profile deleted");
-    } catch (e) {
-      console.error(e);
-      setNotification("⚠️ Failed to delete profile");
     }
   }
 
@@ -374,8 +269,6 @@ const App: React.FC = () => {
     try {
       await logout();
       setCurrentUser(null);
-      setProfiles([]);
-      setActiveProfile(null);
       setNotification("✓ Logged out successfully");
     } catch (e) {
       console.error(e);
@@ -434,13 +327,6 @@ const App: React.FC = () => {
     window.open('http://localhost:5000/api/auth/login/github', '_blank');
   }
 
-  // Removed copy functionality
-  // async function handleCopy(text: string) {
-  //   navigator.clipboard.writeText(text).then(() => {
-  //     setNotification("✓ Copied to clipboard");
-  //   });
-  // }
-
   if (!authChecked) {
     return (
       <div className="popup-container">
@@ -481,7 +367,7 @@ const App: React.FC = () => {
           <div className="login-container">
             <div className="login-header">
               <h2>Welcome to Canner</h2>
-              <p className="login-description">Sign in to access your personalized response templates and profiles.</p>
+              <p className="login-description">Sign in to access your personalized response templates.</p>
             </div>
             
             <div className="login-options">
@@ -511,7 +397,6 @@ const App: React.FC = () => {
                 <h3>Why Sign In?</h3>
                 <ul>
                   <li>Save and organize your response templates</li>
-                  <li>Create topic-based profiles for different use cases</li>
                   <li>Access your templates across devices</li>
                   <li>Personalize your AI assistant experience</li>
                 </ul>
@@ -627,51 +512,6 @@ const App: React.FC = () => {
           </div>
         </div>
       </header>
-
-      <div className="profile-section">
-        <div className="profile-header">
-          <h2>Profiles</h2>
-          <button className="btn-secondary" style={{ marginLeft: '10px' }} onClick={openCreateProfileModal}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M12 5v14M5 12h14"/>
-            </svg>
-            New Profile
-          </button>
-        </div>
-        
-        <div className="profiles-list">
-          {profiles.map(profile => (
-            <div 
-              key={profile.id} 
-              className={`profile-card ${profile.is_active ? 'active' : ''}`}
-            >
-              <div className="profile-info">
-                <h3>{profile.profile_name} {profile.is_active && <span className="profile-label">Active</span>}</h3>
-                <p>{profile.topic}</p>
-              </div>
-              <div className="profile-actions">
-                {!profile.is_active && (
-                  <button 
-                    className="btn-action btn-activate"
-                    onClick={() => handleActivateProfile(profile)}
-                  >
-                    Activate
-                  </button>
-                )}
-                <button 
-                  className="btn-action btn-delete"
-                  onClick={() => handleDeleteProfile(profile.id)}
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <polyline points="3 6 5 6 21 6"/>
-                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                  </svg>
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
 
       <div className="popup-body">
         <div className="search-container">
@@ -943,15 +783,6 @@ const App: React.FC = () => {
                   onChange={(e) => setTags(e.target.value)}
                 />
               </div>
-              {activeProfile && (
-                <div className="form-group">
-                  <label className="form-label">Profile</label>
-                  <div className="profile-info-small">
-                    <span className="profile-name">{activeProfile.profile_name}</span>
-                    <span className="profile-topic">({activeProfile.topic})</span>
-                  </div>
-                </div>
-              )}
             </div>
             <div className="modal-footer">
               <button
@@ -985,54 +816,6 @@ const App: React.FC = () => {
                   : isEditing
                   ? "Save Changes"
                   : "Save Response"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      
-      {showProfileModal && (
-        <div className="modal-overlay" onClick={() => setShowProfileModal(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="profile-modal-title">
-            <div className="modal-header">
-              <h2 id="profile-modal-title">Create Profile</h2>
-              <button className="btn-close" onClick={() => setShowProfileModal(false)} aria-label="Close modal">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M18 6L6 18M6 6l12 12"/>
-                </svg>
-              </button>
-            </div>
-            <div className="modal-body">
-              <div className="form-group">
-                <label htmlFor="profile-name-input" className="form-label">Profile Name</label>
-                <input
-                  id="profile-name-input"
-                  className="form-input"
-                  type="text"
-                  placeholder="e.g., AI Assistant"
-                  value={profileName}
-                  onChange={(e) => setProfileName(e.target.value)}
-                  autoFocus
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="profile-topic-input" className="form-label">Topic</label>
-                <input
-                  id="profile-topic-input"
-                  className="form-input"
-                  type="text"
-                  placeholder="e.g., Artificial Intelligence"
-                  value={profileTopic}
-                  onChange={(e) => setProfileTopic(e.target.value)}
-                />
-              </div>
-            </div>
-            <div className="modal-footer">
-              <button className="btn-secondary" onClick={() => setShowProfileModal(false)}>
-                Cancel
-              </button>
-              <button className="btn-primary" onClick={handleSaveProfile}>
-                Create Profile
               </button>
             </div>
           </div>

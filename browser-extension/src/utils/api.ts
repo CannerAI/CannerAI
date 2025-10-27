@@ -7,18 +7,8 @@ export interface Response {
   title: string;
   content: string;
   tags?: string[] | string;
-  profile_id?: string;
+  user_id?: string;
   created_at?: string;
-}
-
-export interface Profile {
-  id: string;
-  user_id: string;
-  profile_name: string;
-  topic: string;
-  is_active: boolean;
-  created_at?: string;
-  updated_at?: string;
 }
 
 export interface User {
@@ -168,104 +158,6 @@ export async function deleteResponse(id: string): Promise<void> {
       });
     });
   });
-}
-
-// Profile management functions
-export async function getProfiles(): Promise<Profile[]> {
-  try {
-    const response = await fetch(`${API_URL}/api/profiles`, {
-      credentials: 'include'
-    });
-    if (response.ok) {
-      return await response.json();
-    }
-  } catch (error) {
-    console.log("Backend not available for profiles");
-  }
-  
-  return [];
-}
-
-export async function getActiveProfile(): Promise<Profile | null> {
-  try {
-    const response = await fetch(`${API_URL}/api/profiles/active`, {
-      credentials: 'include'
-    });
-    if (response.ok) {
-      return await response.json();
-    }
-  } catch (error) {
-    console.log("Backend not available for active profile");
-  }
-  
-  return null;
-}
-
-export async function createProfile(profile: Omit<Profile, 'id' | 'created_at' | 'updated_at'>): Promise<Profile> {
-  try {
-    const response = await fetch(`${API_URL}/api/profiles`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(profile),
-      credentials: 'include'
-    });
-    
-    if (response.ok) {
-      return await response.json();
-    }
-  } catch (error) {
-    console.log("Backend not available for profile creation");
-  }
-  
-  // Return a mock profile for fallback
-  return {
-    id: `profile-${Date.now()}`,
-    user_id: 'user-1',
-    profile_name: profile.profile_name,
-    topic: profile.topic,
-    is_active: false,
-    created_at: new Date().toISOString()
-  } as Profile;
-}
-
-export async function activateProfile(profileId: string): Promise<Profile> {
-  try {
-    const response = await fetch(`${API_URL}/api/profiles/${profileId}/activate`, {
-      method: "POST",
-      credentials: 'include'
-    });
-    
-    if (response.ok) {
-      return await response.json();
-    }
-  } catch (error) {
-    console.log("Backend not available for profile activation");
-  }
-  
-  // Return a mock profile for fallback
-  return {
-    id: profileId,
-    user_id: 'user-1',
-    profile_name: 'Default Profile',
-    topic: 'General',
-    is_active: true,
-    updated_at: new Date().toISOString()
-  } as Profile;
-}
-
-export async function deleteProfile(profileId: string): Promise<void> {
-  try {
-    const response = await fetch(`${API_URL}/api/profiles/${profileId}`, {
-      method: "DELETE",
-      credentials: 'include'
-    });
-    
-    if (response.ok) {
-      return;
-    }
-  } catch (error) {
-    console.log("Backend not available for profile deletion");
-  }
 }
 
 // Authentication functions

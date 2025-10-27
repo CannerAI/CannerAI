@@ -13,13 +13,13 @@ class Response:
     """Model representing a saved response."""
     
     def __init__(self, id: str, title: str, content: str, 
-                 tags: Optional[List[str]] = None, profile_id: Optional[str] = None,
+                 tags: Optional[List[str]] = None, user_id: Optional[str] = None,
                  created_at: Optional[str] = None, updated_at: Optional[str] = None):
         self.id = id
         self.title = title
         self.content = content
         self.tags = tags or []
-        self.profile_id = profile_id
+        self.user_id = user_id
         self.created_at = created_at
         self.updated_at = updated_at
 
@@ -30,7 +30,7 @@ class Response:
             'title': self.title,
             'content': self.content,
             'tags': self.tags,
-            'profile_id': self.profile_id,
+            'user_id': self.user_id,
             'created_at': self.created_at,
             'updated_at': self.updated_at
         }
@@ -43,7 +43,7 @@ class Response:
             title=row['title'],
             content=row['content'],
             tags=json.loads(row['tags']) if row['tags'] else [],
-            profile_id=row['profile_id'] if 'profile_id' in row.keys() else None,
+            user_id=row['user_id'] if 'user_id' in row.keys() else None,
             created_at=row['created_at'],
             updated_at=row['updated_at']
         )
@@ -87,46 +87,6 @@ class User:
             provider=row['provider'],
             provider_id=row['provider_id'],
             avatar_url=row['avatar_url'],
-            created_at=row['created_at'],
-            updated_at=row['updated_at']
-        )
-
-
-class Profile:
-    """Model representing a user profile."""
-    
-    def __init__(self, id: str, user_id: str, profile_name: str, 
-                 topic: str, is_active: bool = False,
-                 created_at: Optional[str] = None, updated_at: Optional[str] = None):
-        self.id = id
-        self.user_id = user_id
-        self.profile_name = profile_name
-        self.topic = topic
-        self.is_active = is_active
-        self.created_at = created_at
-        self.updated_at = updated_at
-    
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert profile to dictionary."""
-        return {
-            'id': self.id,
-            'user_id': self.user_id,
-            'profile_name': self.profile_name,
-            'topic': self.topic,
-            'is_active': self.is_active,
-            'created_at': self.created_at,
-            'updated_at': self.updated_at
-        }
-    
-    @staticmethod
-    def from_db_row(row: sqlite3.Row) -> 'Profile':
-        """Create Profile from database row."""
-        return Profile(
-            id=row['id'],
-            user_id=row['user_id'],
-            profile_name=row['profile_name'],
-            topic=row['topic'],
-            is_active=bool(row['is_active']),
             created_at=row['created_at'],
             updated_at=row['updated_at']
         )

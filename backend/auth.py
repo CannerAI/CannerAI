@@ -1,6 +1,7 @@
 """
 Authentication service for OAuth with Google and GitHub
 """
+
 import os
 import json
 from flask import Flask, session, redirect, request, url_for
@@ -29,7 +30,7 @@ GITHUB_CLIENT_SECRET = os.getenv('GITHUB_CLIENT_SECRET')
 
 def init_oauth(app: Flask):
     """Initialize OAuth clients."""
-    if not AUTHLIB_AVAILABLE:
+    if not AUTHLIB_AVAILABLE or OAuth is None:
         return None
     
     oauth = OAuth(app)
@@ -167,15 +168,6 @@ def authenticate_user(provider: str, token: str) -> Optional[User]:
             avatar_url=user_info.get('avatar_url')
         )
         print(f"Created user: {user}")
-        
-        # Create default profile for new user
-        default_profile = DatabaseService.create_profile(
-            user_id=user.id,
-            profile_name="Default Profile",
-            topic="General",
-            is_active=True
-        )
-        print(f"Created default profile: {default_profile}")
         
         return user
     except Exception as e:

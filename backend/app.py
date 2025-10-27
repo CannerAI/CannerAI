@@ -15,7 +15,6 @@ from dotenv import load_dotenv
 from auth import init_oauth, authenticate_user
 from database import DatabaseService
 from middleware import require_auth, get_current_user_id
-from models import Profile
 from datetime import datetime
 
 # Load environment variables
@@ -168,6 +167,7 @@ def init_db(max_retries: int = 10):
                         title VARCHAR(255) NOT NULL,
                         content TEXT NOT NULL,
                         tags JSONB DEFAULT '[]'::jsonb,
+                        user_id TEXT,
                         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
                         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
                     );
@@ -180,6 +180,7 @@ def init_db(max_retries: int = 10):
                         title TEXT NOT NULL,
                         content TEXT NOT NULL,
                         tags TEXT,
+                        user_id TEXT,
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     )
@@ -227,6 +228,7 @@ def dict_from_row(row) -> Dict[str, Any]:
         "title": row["title"],
         "content": row["content"],
         "tags": tags,
+        "user_id": row["user_id"] if "user_id" in row else None,
         "created_at": str(row["created_at"]) if row["created_at"] else None,
         "updated_at": str(row["updated_at"]) if row["updated_at"] else None,
     }
@@ -239,34 +241,31 @@ def get_responses():
 
     conn = get_db_connection()
     
-    # Get active profile for current user if authenticated
-    profile_id = None
+    # Get user_id for current user if authenticated
+    user_id = None
     if 'user_id' in session:
         user_id = session['user_id']
-        profile = DatabaseService.get_active_profile_by_user_id(user_id)
-        if profile:
-            profile_id = profile.id
-        logging.info(f"User {user_id} active profile: {profile_id} ({profile.profile_name if profile else 'None'})")
+        logging.info(f"User {user_id} is authenticated")
     
-    if search and profile_id:
+    if search and user_id:
         if is_postgres():
             # PostgreSQL with ILIKE for case-insensitive search and JSONB contains
             query = '''
                 SELECT * FROM responses 
-                WHERE profile_id = %s AND (title ILIKE %s OR content ILIKE %s OR tags::text ILIKE %s)
+                WHERE user_id = %s AND (title ILIKE %s OR content ILIKE %s OR tags::text ILIKE %s)
                 ORDER BY created_at DESC
             '''
             search_term = f'%{search}%'
-            rows = execute_query(conn, query, (profile_id, search_term, search_term, search_term))
+            rows = execute_query(conn, query, (user_id, search_term, search_term, search_term))
         else:
             # SQLite with LIKE
             query = '''
                 SELECT * FROM responses 
-                WHERE profile_id = ? AND (title LIKE ? OR content LIKE ? OR tags LIKE ?)
+                WHERE user_id = ? AND (title LIKE ? OR content LIKE ? OR tags LIKE ?)
                 ORDER BY created_at DESC
             '''
             search_term = f'%{search}%'
-            rows = execute_query(conn, query, (profile_id, search_term, search_term, search_term))
+            rows = execute_query(conn, query, (user_id, search_term, search_term, search_term))
     elif search:
         if is_postgres():
             # PostgreSQL with ILIKE for case-insensitive search and JSONB contains
@@ -286,19 +285,19 @@ def get_responses():
             """
             search_term = f"%{search}%"
             rows = execute_query(conn, query, (search_term, search_term, search_term))
-    elif profile_id:
+    elif user_id:
         if is_postgres():
-            rows = execute_query(conn, 'SELECT * FROM responses WHERE profile_id = %s ORDER BY created_at DESC', 
-                               (profile_id,))
+            rows = execute_query(conn, 'SELECT * FROM responses WHERE user_id = %s ORDER BY created_at DESC', 
+                               (user_id,))
         else:
-            rows = execute_query(conn, 'SELECT * FROM responses WHERE profile_id = ? ORDER BY created_at DESC', 
-                               (profile_id,))
+            rows = execute_query(conn, 'SELECT * FROM responses WHERE user_id = ? ORDER BY created_at DESC', 
+                               (user_id,))
     else:
-        # If no profile is active, show responses without profile_id (legacy responses)
+        # If no user is authenticated, show responses without user_id (legacy responses)
         if is_postgres():
-            rows = execute_query(conn, 'SELECT * FROM responses WHERE profile_id IS NULL ORDER BY created_at DESC')
+            rows = execute_query(conn, 'SELECT * FROM responses WHERE user_id IS NULL ORDER BY created_at DESC')
         else:
-            rows = execute_query(conn, 'SELECT * FROM responses WHERE profile_id IS NULL ORDER BY created_at DESC')
+            rows = execute_query(conn, 'SELECT * FROM responses WHERE user_id IS NULL ORDER BY created_at DESC')
     
     conn.close()
 
@@ -340,30 +339,27 @@ def create_response():
     content = data['content']
     tags = data.get('tags', [])
     
-    # Get active profile for current user if authenticated
-    profile_id = None
+    # Get user_id for current user if authenticated
+    user_id = None
     if 'user_id' in session:
         user_id = session['user_id']
-        profile = DatabaseService.get_active_profile_by_user_id(user_id)
-        if profile:
-            profile_id = profile.id
     
     conn = get_db_connection()
 
     if is_postgres():
         # PostgreSQL with JSONB and auto-generated UUID
         query = '''
-            INSERT INTO responses (title, content, tags, profile_id) 
+            INSERT INTO responses (title, content, tags, user_id) 
             VALUES (%s, %s, %s, %s) 
             RETURNING *
         '''
-        rows = execute_query(conn, query, (title, content, json.dumps(tags), profile_id))
+        rows = execute_query(conn, query, (title, content, json.dumps(tags), user_id))
         response_data = dict_from_row(rows[0]) if rows else None
     else:
         # SQLite with manual UUID
         response_id = str(uuid.uuid4())
-        query = 'INSERT INTO responses (id, title, content, tags, profile_id) VALUES (?, ?, ?, ?, ?)'
-        execute_query(conn, query, (response_id, title, content, json.dumps(tags), profile_id))
+        query = 'INSERT INTO responses (id, title, content, tags, user_id) VALUES (?, ?, ?, ?, ?)'
+        execute_query(conn, query, (response_id, title, content, json.dumps(tags), user_id))
         
         # Fetch the created record
         rows = execute_query(
@@ -596,87 +592,6 @@ def logout():
     """Logout the current user."""
     session.clear()
     return jsonify({'message': 'Logged out successfully'})
-
-# Profile management endpoints
-@app.route('/api/profiles', methods=['GET'])
-@require_auth
-def get_profiles():
-    """Get all profiles for the current user."""
-    user_id = get_current_user_id()
-    profiles = DatabaseService.get_profiles_by_user_id(user_id)
-    return jsonify([profile.to_dict() for profile in profiles])
-
-@app.route('/api/profiles/active', methods=['GET'])
-@require_auth
-def get_active_profile():
-    """Get the active profile for the current user."""
-    user_id = get_current_user_id()
-    profile = DatabaseService.get_active_profile_by_user_id(user_id)
-    if not profile:
-        return jsonify({'error': 'No active profile found'}), 404
-    return jsonify(profile.to_dict())
-
-@app.route('/api/profiles', methods=['POST'])
-@require_auth
-def create_profile():
-    """Create a new profile for the current user."""
-    user_id = get_current_user_id()
-    data = request.get_json()
-    
-    if not data or 'profile_name' not in data or 'topic' not in data:
-        return jsonify({'error': 'Profile name and topic are required'}), 400
-    
-    # Check if this is the first profile for the user
-    existing_profiles = DatabaseService.get_profiles_by_user_id(user_id)
-    is_active = len(existing_profiles) == 0  # Make first profile active by default
-    
-    try:
-        profile = DatabaseService.create_profile(
-            user_id=user_id,
-            profile_name=data['profile_name'],
-            topic=data['topic'],
-            is_active=is_active
-        )
-        return jsonify(profile.to_dict()), 201
-    except Exception as e:
-        print(f"Error creating profile: {e}")
-        return jsonify({'error': 'Failed to create profile'}), 500
-
-@app.route('/api/profiles/<profile_id>/activate', methods=['POST'])
-@require_auth
-def activate_profile(profile_id):
-    """Activate a profile for the current user."""
-    user_id = get_current_user_id()
-    profile = DatabaseService.update_profile_active_status(profile_id, user_id, True)
-    
-    if not profile:
-        return jsonify({'error': 'Profile not found or access denied'}), 404
-    
-    return jsonify(profile.to_dict())
-
-@app.route('/api/profiles/<profile_id>', methods=['DELETE'])
-@require_auth
-def delete_profile(profile_id):
-    """Delete a profile for the current user."""
-    user_id = get_current_user_id()
-    
-    # Check if this is the active profile
-    active_profile = DatabaseService.get_active_profile_by_user_id(user_id)
-    is_active_profile = active_profile and active_profile.id == profile_id
-    
-    success = DatabaseService.delete_profile(profile_id, user_id)
-    
-    if not success:
-        return jsonify({'error': 'Profile not found or access denied'}), 404
-    
-    # If we deleted the active profile, activate the first available profile
-    if is_active_profile:
-        profiles = DatabaseService.get_profiles_by_user_id(user_id)
-        if profiles:
-            # Activate the first profile
-            DatabaseService.update_profile_active_status(profiles[0].id, user_id, True)
-    
-    return '', 204
 
 @app.route('/api/auth/user')
 def get_current_user():
