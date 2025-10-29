@@ -3,7 +3,6 @@ Authentication service for OAuth with Google and GitHub
 """
 
 import os
-import json
 from flask import Flask
 from typing import Optional, Dict, Any
 
