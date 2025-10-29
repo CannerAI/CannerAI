@@ -12,8 +12,8 @@ let lastFocusedInput: HTMLElement | null = null;
 
 // this function track focused inputs
 function trackFocusedInputs() {
-  document.addEventListener('focusin', (e) => {
-    const target = e.target as HTMLElement;
+  document.addEventListener('focusin', (_e) => {
+    const target = _e.target as HTMLElement;
     if (isValidInputElement(target)) {
       lastFocusedInput = target;
       console.log("Canner: Tracked focused input", target);
@@ -297,7 +297,7 @@ class InlineSuggestionManager {
     overlay.style.lineHeight = computedStyle.lineHeight;
 
     // Position exactly at cursor baseline for Twitter
-    let left = rect.right + 1;
+    const left = rect.right + 1;
     let top = rect.top;
 
     // Calculate baseline alignment for perfect text alignment
@@ -447,7 +447,7 @@ class InlineSuggestionManager {
   }
 }
 
-async function fetchLocalSuggestions(prefix: string): Promise<any[]> {
+async function _fetchLocalSuggestions(prefix: string): Promise<any[]> {
   return new Promise((resolve) => {
     chrome.storage.local.get(["responses"], (result) => {
       const list = result.responses || [];
@@ -633,7 +633,7 @@ function createPenButton(targetBox: HTMLElement): HTMLElement {
   penContainer.className = "social-helper-pen";
 
   // Detect platform for appropriate styling
-  const isLinkedIn =
+  const _isLinkedIn =
     window.location.hostname.includes("linkedin") ||
     document.body.className.includes("linkedin") ||
     targetBox.closest('[class*="linkedin"]') !== null;
@@ -643,7 +643,7 @@ function createPenButton(targetBox: HTMLElement): HTMLElement {
     window.location.hostname.includes("x.com") ||
     targetBox.closest("[data-testid]") !== null;
 
-  if (isLinkedIn) {
+  if (_isLinkedIn) {
     penContainer.setAttribute("data-platform", "linkedin");
   } else if (isTwitter) {
     penContainer.setAttribute("data-platform", "twitter");
@@ -1204,7 +1204,7 @@ menu.offsetHeight;
 }
 
 // Show create modal for new response
-function showCreateModal(targetBox: HTMLElement, button: HTMLElement, menu: HTMLElement) {
+function _showCreateModal(targetBox: HTMLElement, button: HTMLElement, menu: HTMLElement) {
   // Create modal overlay
   const modalOverlay = document.createElement("div");
   modalOverlay.className = "sh-modal-overlay";
@@ -1371,7 +1371,7 @@ async function createResponse(data: any): Promise<void> {
 }
 
 // Show edit modal for response
-function showEditModal(response: any, targetBox: HTMLElement, button: HTMLElement, menu: HTMLElement) {
+function _showEditModal(response: any, targetBox: HTMLElement, button: HTMLElement, menu: HTMLElement) {
   // Create modal overlay
   const modalOverlay = document.createElement("div");
   modalOverlay.className = "sh-modal-overlay";
