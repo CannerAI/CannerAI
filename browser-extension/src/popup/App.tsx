@@ -623,6 +623,54 @@ const App: React.FC = () => {
                   onChange={(e) => setContent(e.target.value)}
                   rows={5}
                 />
+                <button
+                  onClick={async () => {
+                    try {
+                      setSaving(true);
+                      setNotification("⌛ Saving content...");
+                      const res = await fetch("http://localhost:5000/content", {
+                        method: "POST",
+                        headers: {
+                          "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify({ content }),
+                      });
+                      if (!res.ok) {
+                        throw new Error(`Server error: ${res.status}`);
+                      }
+                      const data = await res.json();
+                      if (data?.suggested_tags && data.suggested_tags.length > 0) {
+                        // Add suggested tags to the tags field
+                        const currentTags = tags.trim() ? tags.split(",").map(t => t.trim()) : [];
+                        const newTags = [...currentTags, ...data.suggested_tags];
+                        const uniqueTags = [...new Set(newTags)]; // Remove duplicates
+                        setTags(uniqueTags.join(", "));
+                        setNotification(`✓ Suggested ${data.suggested_tags.length} tag(s)`);
+                      } else {
+                        setNotification("⚠️ No tag suggestions found");
+                      }
+                    } catch (e) {
+                      console.error(e);
+                      setNotification(`⚠️ Failed to analyze content`);
+                    } finally {
+                      setSaving(false);
+                    }
+                  }}
+                  className="btn-save-content"
+                  disabled={!content.trim() || saving}
+                >
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                  </svg>
+                  {saving ? "Saving..." : "Save Content"}
+                </button>
               </div>
               <div className="form-group">
                 <label htmlFor="tags-input" className="form-label">

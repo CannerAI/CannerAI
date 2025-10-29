@@ -6,7 +6,7 @@ import time
 import uuid
 from datetime import datetime
 from typing import Any, Dict, Union
-
+from tags import detect_tags
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 
@@ -392,6 +392,46 @@ def delete_response(response_id: str):
     return "", 204
 
 
+@app.route("/content", methods=["POST"])
+def analyze_content():
+    """Analyze content and suggest tags using NLP."""
+    try:
+        data = request.get_json()
+        content = data.get("content", "").strip()
+        
+        if not content:
+            return jsonify({"error": "Content is required"}), 400
+        
+        conn = get_db_connection()
+        cursor = conn.cursor() if is_postgres() else conn
+        
+        if is_postgres():
+            cursor.execute("SELECT DISTINCT jsonb_array_elements_text(tags) as tag FROM responses WHERE tags IS NOT NULL")
+            tag_rows = cursor.fetchall()
+            candidate_tags = [row[0] for row in tag_rows if row[0]]
+        else:
+            cursor.execute("SELECT tags FROM responses WHERE tags IS NOT NULL AND tags != '[]'")
+            tag_rows = cursor.fetchall()
+            candidate_tags = []
+            for row in tag_rows:
+                try:
+                    tags_list = json.loads(row[0] if isinstance(row, tuple) else row["tags"])
+                    candidate_tags.extend(tags_list)
+                except (json.JSONDecodeError, TypeError):
+                    continue
+            candidate_tags = list(set(candidate_tags))
+        
+        conn.close()
+        suggestions = detect_tags(content, candidate_tags, top_k=5, threshold=0.3)
+        suggested_tags = [suggestion["tag"] for suggestion in suggestions]
+        
+        return jsonify({"suggested_tags": suggested_tags})
+        
+    except Exception as e:
+        logging.error(f"Error analyzing content: {e}")
+        return jsonify({"error": "Failed to analyze content"}), 500
+
+
 @app.route("/api/health", methods=["GET"])
 def health_check():
     """Health check endpoint with database connectivity test."""
@@ -446,6 +486,7 @@ if __name__ == "__main__":
         init_db()
 
         logging.info("🚀 Starting Flask server on http://0.0.0.0:5000")
+        logging.info("All set to go!")
         app.run(debug=True, host="0.0.0.0", port=5000)
 
     except Exception as e:

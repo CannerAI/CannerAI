@@ -735,6 +735,65 @@ kbd {
   border-color: var(--text-tertiary);
 }
 
+/* Save Content Button - Special styling for NLP analysis */
+.btn-save-content {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 16px;
+  margin-top: 12px;
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-hover) 100%);
+  color: white;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.25);
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-save-content::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s;
+}
+
+.btn-save-content:hover::before {
+  left: 100%;
+}
+
+.btn-save-content:hover {
+  background: linear-gradient(135deg, var(--accent-hover) 0%, #1d4ed8 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(59, 130, 246, 0.35);
+}
+
+.btn-save-content:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.25);
+}
+
+.btn-save-content:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+  transform: none;
+  box-shadow: none;
+  background: var(--text-tertiary);
+}
+
+.btn-save-content:disabled::before {
+  display: none;
+}
+
 /* Scrollbar */
 .popup-body::-webkit-scrollbar {
   width: 6px;
