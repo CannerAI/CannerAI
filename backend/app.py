@@ -155,7 +155,6 @@ def init_db(max_retries: int = 10):
             # Use DatabaseService to initialize the database
             DatabaseService.initialize()
             
-            db_type = 'PostgreSQL' if is_postgres() else 'SQLite'
             conn = get_db_connection()
 
             if is_postgres():
