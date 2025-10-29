@@ -556,7 +556,6 @@ def oauth_callback(provider):
         print(f"User session stored: {session}")
         
         # Redirect to frontend with success message
-        frontend_url = os.getenv('FRONTEND_URL', 'http://localhost:3000')
         return '''
         <html>
         <head>
