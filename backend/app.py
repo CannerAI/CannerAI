@@ -10,7 +10,6 @@ import time
 import uuid
 from typing import List, Dict, Any, Optional, Union
 from urllib.parse import urlparse
-import logging
 from dotenv import load_dotenv
 from auth import init_oauth, authenticate_user
 from database import DatabaseService
