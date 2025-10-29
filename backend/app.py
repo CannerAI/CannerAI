@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, session, redirect, url_for
+from flask import Flask, request, jsonify, session, url_for
 from flask_cors import CORS
 from flasgger import Swagger
 import sqlite3
