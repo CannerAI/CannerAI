@@ -289,7 +289,9 @@ const App: React.FC = () => {
             authed = await getCurrentUser();
             setCurrentUser(authed);
             if (authed) break;
-          } catch {}
+          } catch (e) {
+            console.error("Failed to get current user during OAuth polling:", e);
+          }
           await new Promise(r => setTimeout(r, 500));
         }
         if (authed) {
