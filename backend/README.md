@@ -1,123 +1,36 @@
 # Canner Backend
 
-Flask REST API for managing saved responses with OAuth authentication and user profiles.
+Flask backend for the Canner browser extension with authentication, response storage, and API endpoints.
 
-## Features
+## 🚀 Quick Start
 
-- 🔐 OAuth authentication (Google & GitHub)
-- 👤 User profiles with topic-based organization
-- 📝 Response templates with tags and search
-- 🗄️ SQLite/PostgreSQL database support
-- 🌐 CORS support for browser extensions
-- 📚 Interactive API documentation with Swagger
-
-## Setup
-
-1. **Install dependencies:**
 ```bash
+# Clone the repository
+git clone https://github.com/yourusername/canner.git
+cd canner/backend
+
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install dependencies
 pip install -r requirements.txt
-```
 
-2. **Configure environment:**
-```bash
-cp .env.example .env
-# Edit .env with your OAuth credentials and settings
-```
+# Set environment variables (see below)
+# Create .env file or export variables
 
-3. **Run the server:**
-```bash
+# Run the server
 python app.py
 ```
 
 The server will start on `http://localhost:5000` with Swagger docs at `http://localhost:5000/docs/`
 
-## API Documentation
+## ⚙️ Environment Variables
 
-### Authentication Endpoints
+Create a `.env` file in the backend directory:
 
-```
-GET  /api/auth/login/google     # Initiate Google OAuth
-GET  /api/auth/login/github     # Initiate GitHub OAuth
-GET  /api/auth/callback/:provider # OAuth callback handler
-GET  /api/auth/user             # Get current user info
-GET  /api/auth/logout           # Logout current user
-```
-
-### Profile Management
-
-```
-GET  /api/profiles              # Get all user profiles
-GET  /api/profiles/active       # Get active profile
-POST /api/profiles              # Create new profile
-POST /api/profiles/:id/activate # Activate profile
-DELETE /api/profiles/:id        # Delete profile
-```
-
-### Response Management
-
-```
-GET    /api/responses           # Get all responses (filtered by active profile)
-GET    /api/responses/:id       # Get single response
-POST   /api/responses           # Create response
-PUT    /api/responses/:id       # Update response
-DELETE /api/responses/:id       # Delete response
-```
-
-**Query Parameters for GET /api/responses:**
-- `search`: Optional search term (searches title, content, tags)
-
-**Request Body for POST /api/responses:**
-```json
-{
-  "title": "string",
-  "content": "string", 
-  "tags": ["string"]
-}
-```
-
-### System Endpoints
-
-```
-GET /api/health                 # Health check with database status
-GET /docs/                      # Interactive Swagger documentation
-```
-
-## Database Schema
-
-### users table
-- `id` (TEXT, PRIMARY KEY) - Internal user UUID
-- `email` (TEXT, UNIQUE, NOT NULL)
-- `name` (TEXT, NOT NULL)
-- `provider` (TEXT, NOT NULL) - 'google' or 'github'
-- `provider_id` (TEXT, NOT NULL) - OAuth provider user ID
-- `avatar_url` (TEXT)
-- `created_at` (TIMESTAMP)
-- `updated_at` (TIMESTAMP)
-
-### profiles table
-- `id` (TEXT, PRIMARY KEY)
-- `user_id` (TEXT, NOT NULL) - Foreign key to users.id
-- `profile_name` (TEXT, NOT NULL)
-- `topic` (TEXT, NOT NULL)
-- `is_active` (BOOLEAN, DEFAULT FALSE)
-- `created_at` (TIMESTAMP)
-- `updated_at` (TIMESTAMP)
-
-### responses table
-- `id` (TEXT, PRIMARY KEY)
-- `title` (TEXT, NOT NULL)
-- `content` (TEXT, NOT NULL)
-- `tags` (TEXT, JSON array)
-- `profile_id` (TEXT) - Foreign key to profiles.id
-- `created_at` (TIMESTAMP)
-- `updated_at` (TIMESTAMP)
-
-## Environment Configuration
-
-Create a `.env` file with the following variables:
-
-```bash
-# OAuth Configuration
+```env
+# OAuth Configuration (required for authentication)
 GOOGLE_CLIENT_ID=your_google_client_id
 GOOGLE_CLIENT_SECRET=your_google_client_secret
 GITHUB_CLIENT_ID=your_github_client_id

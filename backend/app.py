@@ -554,7 +554,8 @@ def oauth_callback(provider):
         print(f"User session stored: {session}")
         
         # Redirect to frontend with success message
-        return '''
+        frontend_url = os.getenv('FRONTEND_URL', 'http://localhost:3000')
+        return f'''
         <html>
         <head>
             <title>Authentication Success</title>
@@ -562,9 +563,9 @@ def oauth_callback(provider):
         <body>
             <script>
                 // Send message to opener window
-                if (window.opener) {
-                    window.opener.postMessage({"type": "oauth-success"}, "*");
-                }
+                if (window.opener) {{
+                    window.opener.postMessage({{"type": "oauth-success"}}, "{frontend_url}");
+                }}
                 // Close this window
                 window.close();
             </script>

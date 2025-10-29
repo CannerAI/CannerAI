@@ -2,6 +2,9 @@
 
 console.log("Canner: Background script loaded");
 
+// Use a configurable API URL with a fallback to localhost
+const API_URL = process.env.API_URL || "http://localhost:5000";
+
 // Handle extension installation
 chrome.runtime.onInstalled.addListener((details) => {
   if (details.reason === "install") {
@@ -12,7 +15,7 @@ chrome.runtime.onInstalled.addListener((details) => {
       responses: [],
       settings: {
         autoShowButton: true,
-        apiUrl: "http://localhost:5000",
+        apiUrl: API_URL,
       },
     });
 
@@ -65,10 +68,10 @@ chrome.commands?.onCommand.addListener((command) => {
 // Sync with backend periodically
 setInterval(async () => {
   try {
-    const result = await fetch("http://localhost:5000/api/health");
+    const result = await fetch(`${API_URL}/api/health`);
     if (result.ok) {
       // Backend is available, sync data
-      const responses = await fetch("http://localhost:5000/api/responses");
+      const responses = await fetch(`${API_URL}/api/responses`);
       if (responses.ok) {
         const data = await responses.json();
         chrome.storage.local.set({ responses: data });

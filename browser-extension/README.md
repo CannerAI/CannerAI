@@ -138,11 +138,18 @@ The extension works with the Flask backend from the main project:
 
 ### Change API URL
 
-Edit `src/utils/api.ts`:
+You can configure the API URL using the `API_URL` environment variable when building the extension:
 
-```typescript
-const API_URL = "https://your-backend-url.com";
+```bash
+API_URL=https://your-backend-url.com npm run build
 ```
+
+Alternatively, you can modify the default API URL in the extension settings:
+
+1. Click the extension icon
+2. Go to Settings (⚙️ icon)
+3. Change the "API URL" field
+4. Save the settings
 
 ## 🎨 Features in Detail
 
