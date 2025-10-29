@@ -27,7 +27,10 @@ except ImportError:
     print("⚠️  psycopg2 not available. PostgreSQL support disabled.")
 
 app = Flask(__name__)
-app.secret_key = os.getenv('SECRET_KEY', 'fallback-secret-key-change-in-production')
+secret_key = os.getenv('SECRET_KEY')
+if not secret_key:
+    raise RuntimeError("SECRET_KEY environment variable must be set for security reasons.")
+app.secret_key = secret_key
 app.config['SESSION_COOKIE_SAMESITE'] = 'None'
 app.config['SESSION_COOKIE_SECURE'] = True
 
