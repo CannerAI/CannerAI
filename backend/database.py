@@ -40,16 +40,8 @@ class DatabaseService:
             )
         ''')
         
-        # Migration: Add user_id column if it doesn't exist
-        try:
-            conn.execute('ALTER TABLE responses ADD COLUMN user_id TEXT')
-            print("✅ Added user_id column to responses table")
-        except Exception as e:
-            if "duplicate column name" in str(e).lower() or "already exists" in str(e).lower():
-                pass  # Column already exists, which is fine
-            else:
-                print(f"⚠️ Migration warning: {e}")
-        
+        # NOTE: Database schema migrations should be managed using a dedicated migration tool
+        # such as Alembic or Flask-Migrate. Do not embed migration logic here.
         # Create users table
         conn.execute('''
             CREATE TABLE IF NOT EXISTS users (
