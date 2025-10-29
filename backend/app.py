@@ -12,7 +12,6 @@ from urllib.parse import urlparse
 from dotenv import load_dotenv
 from auth import init_oauth, authenticate_user
 from database import DatabaseService
-from middleware import require_auth, get_current_user_id
 from datetime import datetime
 
 # Load environment variables
