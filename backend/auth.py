@@ -4,7 +4,7 @@ Authentication service for OAuth with Google and GitHub
 
 import os
 import json
-from flask import Flask, session, redirect, request, url_for
+from flask import Flask
 from typing import Optional, Dict, Any
 
 # Conditional imports for OAuth
