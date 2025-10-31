@@ -1259,3 +1259,288 @@ textarea.lh-input {
   transform: none;
   box-shadow: none;
 }
+
+
+/* Social Helper - Content Script Styles */
+
+/* ===== QUICK RESPONSE FLOATING BUTTON (Dot and Expandable Pencil) ===== */
+
+/* The main container for the floating button.
+   Handles positioning, visibility animations, and hover-based expansion. */
+.qr-button-container {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 10000; /* High z-index to ensure visibility */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;  /* Initial width, matching the minimized dot */
+  height: 48px; /* Initial height, matching the minimized dot */
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  box-sizing: border-box;
+  max-width: 250px; /* Prevent overly wide buttons */
+
+  /* Initial state for entrance animation */
+  opacity: 0;
+  transform: scale(0.8) translateY(10px);
+}
+
+/* Controls the appearance of the button when an input field is focused. */
+.qr-button-container.visible {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+  transition: opacity 0.3s ease-out, transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+/* Controls the disappearance of the button. */
+.qr-button-container.hiding {
+  opacity: 0;
+  transform: scale(0.8) translateY(10px);
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  pointer-events: none;
+}
+
+/* Common styles for the visual elements inside the container (dot and pencil button).
+   They are absolutely positioned to overlap and allow for a cross-fade transition. */
+.qr-button-dot,
+.qr-button-pencil {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%); /* Center the element */
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%; /* Start as a circle */
+  background: var(--bg-secondary, rgba(255, 255, 255, 0.95));
+  border: 2px solid var(--border, rgba(0, 0, 0, 0.08));
+  box-shadow: var(--shadow-md, 0 4px 16px rgba(0, 0, 0, 0.12));
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  cursor: pointer;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  box-sizing: border-box;
+  color: var(--text-secondary, #666);
+}
+
+/* ---- Minimized State (Default) ---- */
+
+.qr-button-dot {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+  pointer-events: auto; /* Interactable when visible */
+  visibility: visible;
+}
+
+.qr-button-pencil {
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.8);
+  pointer-events: none; /* Not interactable when hidden */
+  visibility: hidden; /* Hide completely for accessibility */
+  padding: 8px 16px; /* Padding for when it expands */
+  white-space: nowrap;
+  gap: 10px; /* Space between icon and text */
+}
+
+/* Inner elements of the expanded pencil button */
+.qr-button-pencil-icon {
+  font-size: 20px;
+  line-height: 1;
+  color: var(--text-secondary, #666);
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  filter: grayscale(0.2);
+  flex-shrink: 0; /* Prevent icon from shrinking */
+}
+
+.qr-button-pencil-text {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary, #333);
+  opacity: 0;
+  width: 0; /* Hidden by default */
+  overflow: hidden;
+  white-space: nowrap;
+  transition: opacity 0.2s ease-in, width 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  letter-spacing: 0.2px;
+}
+
+/* ---- Expanded State (on container hover/focus) ---- */
+
+/* The container grows to fit the expanded pill button */
+.qr-button-container.qr-button-expanded {
+  width: auto;
+  min-width: 160px;
+}
+
+/* The dot fades and shrinks away */
+.qr-button-container.qr-button-expanded .qr-button-dot {
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.6);
+  pointer-events: none;
+  visibility: hidden;
+}
+
+/* The pencil button fades in, grows, and becomes a pill shape */
+.qr-button-container.qr-button-expanded .qr-button-pencil {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+  pointer-events: auto;
+  visibility: visible;
+  border-radius: 24px; /* Pill shape */
+  width: 100%; /* Fill the expanded container */
+  box-shadow: var(--shadow-lg, 0 8px 32px rgba(0, 0, 0, 0.16));
+  border-color: var(--accent-light, rgba(29, 161, 242, 0.2));
+  background: var(--bg-secondary, rgba(255, 255, 255, 0.98));
+}
+
+/* The icon inside gets colored and slightly larger */
+.qr-button-container.qr-button-expanded .qr-button-pencil-icon {
+  color: var(--accent, #1da1f2);
+  filter: grayscale(0);
+  transform: scale(1.1);
+}
+
+/* The text fades and grows in */
+.qr-button-container.qr-button-expanded .qr-button-pencil-text {
+  opacity: 1;
+  width: auto;
+}
+
+/* ---- Active State & Platform Colors ---- */
+
+/* Active state for click feedback */
+.qr-button-container:active .qr-button-dot,
+.qr-button-container.qr-button-expanded:active .qr-button-pencil {
+  transform: translate(-50%, -50%) scale(0.96);
+  transition: transform 0.1s ease;
+}
+
+/* LinkedIn-specific styles */
+body[class*="linkedin"] .qr-button-container.qr-button-expanded .qr-button-pencil,
+.qr-button-container[data-platform="linkedin"].qr-button-expanded .qr-button-pencil {
+  border-color: rgba(10, 102, 194, 0.3);
+  box-shadow: 0 8px 32px rgba(10, 102, 194, 0.12);
+}
+
+body[class*="linkedin"] .qr-button-container.qr-button-expanded .qr-button-pencil-icon,
+.qr-button-container[data-platform="linkedin"].qr-button-expanded .qr-button-pencil-icon {
+  color: #0a66c2;
+}
+
+/* Twitter-specific styles */
+.qr-button-container[data-platform="twitter"].qr-button-expanded .qr-button-pencil {
+  border-color: rgba(29, 161, 242, 0.3);
+  box-shadow: 0 8px 32px rgba(29, 161, 242, 0.12);
+}
+
+.qr-button-container[data-platform="twitter"].qr-button-expanded .qr-button-pencil-icon {
+  color: #1da1f2;
+}
+
+/* Inline ghost suggestion shown after caret (grey completion) */
+.canner-ghost-suggestion,
+.sh-inline-suggestion {
+  color: rgba(102, 112, 122, 0.7);
+  pointer-events: none;
+  user-select: none;
+  display: inline;
+  margin-left: 2px;
+  font-style: normal;
+  opacity: 0.9;
+  white-space: pre;
+  vertical-align: baseline;
+}
+
+/* For textarea/input overlay */
+.sh-inline-overlay {
+  position: absolute;
+  color: rgba(102, 112, 122, 0.7);
+  pointer-events: none;
+  white-space: pre;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  opacity: 0.9;
+  z-index: 10005;
+  overflow-wrap: break-word;
+  max-width: 300px;
+  display: inline;
+  vertical-align: baseline;
+}
+
+/* ===== NEW MENU STYLES - MATCHING POPUP DESIGN ===== */
+.social-helper-menu {
+  position: fixed;
+  width: 420px;
+  max-height: 600px;
+  background: var(--bg-secondary, rgba(255, 255, 255, 0.98));
+  border: 1px solid var(--border, rgba(228, 228, 231, 0.8));
+  border-radius: var(--radius-lg, 16px);
+  box-shadow: var(--shadow-lg, 0 8px 24px rgba(0, 0, 0, 0.08));
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  z-index: 10001;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  animation: scaleIn 0.2s ease-out;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+/* Dark mode support for menu */
+@media (prefers-color-scheme: dark) {
+  .social-helper-menu {
+    --bg-secondary: rgba(23, 23, 23, 0.98);
+    --bg-primary: #0f0f0f;
+    --text-primary: #fafafa;
+    --text-secondary: #a1a1aa;
+    --text-tertiary: #71717a;
+    --accent: #60a5fa;
+    --accent-hover: #3b82f6;
+    --accent-light: rgba(96, 165, 250, 0.1);
+    --border: rgba(39, 39, 42, 0.5);
+    --border-strong: rgba(39, 39, 42, 0.8);
+    --success: #34d399;
+    --warning: #fbbf24;
+    --danger: #f87171;
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
+    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.4);
+  }
+}
+
+.social-helper-menu[data-theme="dark"] {
+  --bg-secondary: rgba(23, 23, 23, 0.98);
+  --bg-primary: #0f0f0f;
+  --text-primary: #fafafa;
+  --text-secondary: #a1a1aa;
+  --text-tertiary: #71717a;
+  --accent: #60a5fa;
+  --accent-hover: #3b82f6;
+  --accent-light: rgba(96, 165, 250, 0.1);
+  --border: rgba(39, 39, 42, 0.5);
+  --border-strong: rgba(39, 39, 42, 0.8);
+  --success: #34d399;
+  --warning: #fbbf24;
+  --danger: #f87171;
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+/* Light mode defaults */
+.social-helper-menu {
+  --bg-primary: #fafafa;
+  --bg-secondary: rgba(255, 255, 255, 0.98);
+  --text-primary: #18181b;
+  --text-secondary: #71717a;
+  --text-tertiary: #a1a1aa;
+  --accent: #3b82f6;
+  --accent-hover: #2563eb;
+  --accent-light: #eff6ff;
+  --border: rgba(228, 228, 231, 0.5);
+  --border-strong: rgba(228, 228, 231, 0.8);
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger:
