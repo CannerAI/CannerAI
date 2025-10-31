@@ -196,9 +196,9 @@ def create_response():
     return jsonify(response_data), 201
 
 
-@app.route("/api/responses/<response_id>", methods=["PUT"])
+@app.route("/api/responses/<response_id>", methods=["PATCH"])
 def update_response(response_id: str):
-    """Update an existing response."""
+    """Update an existing response (partial update)."""
     data = request.get_json()
 
     if not data:
