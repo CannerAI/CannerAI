@@ -41,6 +41,12 @@ allowed_origins = os.getenv('CORS_ALLOWED_ORIGINS', 'http://localhost:3000').spl
 CORS(app, supports_credentials=True, origins=[o.strip() for o in allowed_origins])
 
 # Initialize OAuth
+print("Initializing OAuth...")
+print(f"GOOGLE_CLIENT_ID from env: {os.getenv('GOOGLE_CLIENT_ID')}")
+print(f"GOOGLE_CLIENT_SECRET from env: {os.getenv('GOOGLE_CLIENT_SECRET')}")
+print(f"GITHUB_CLIENT_ID from env: {os.getenv('GITHUB_CLIENT_ID')}")
+print(f"GITHUB_CLIENT_SECRET from env: {os.getenv('GITHUB_CLIENT_SECRET')}")
+
 oauth = init_oauth(app)
 print(f"OAuth initialized: {oauth is not None}")
 if oauth:
@@ -378,6 +384,68 @@ def health_check():
         )
 
 
+@app.route('/api/auth/user')
+def get_current_user():
+    """Get the current authenticated user."""
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({'error': 'Not authenticated'}), 401
+    
+    # Import locally to avoid circular imports
+    from database import DatabaseService
+    user = DatabaseService.get_user_by_id(user_id)
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    
+    return jsonify(user.to_dict())
+
+@app.route('/api/auth/login/<provider>')
+def oauth_login(provider):
+    """Initiate OAuth login flow."""
+    # Debug print to check OAuth object
+    global oauth  # Make sure we're using the global oauth object
+    print(f"OAuth object in login route: {oauth}")
+    print(f"OAuth type: {type(oauth)}")
+    print(f"GOOGLE_CLIENT_ID from env: {os.getenv('GOOGLE_CLIENT_ID')}")
+    print(f"GITHUB_CLIENT_ID from env: {os.getenv('GITHUB_CLIENT_ID')}")
+    
+    if oauth is None:
+        print("OAuth is None, trying to reinitialize...")
+        # Try to reinitialize OAuth
+        from auth import init_oauth
+        oauth = init_oauth(app)
+        if oauth is None:
+            print("OAuth reinitialization failed")
+            return jsonify({'error': 'OAuth not configured'}), 500
+        print("OAuth reinitialized successfully")
+    
+    if provider not in ['google', 'github']:
+        return jsonify({'error': 'Unsupported provider'}), 400
+    
+    # Check if the OAuth client is available
+    try:
+        client = oauth.create_client(provider)
+        if not client:
+            print(f"Client for {provider} is None")
+            return jsonify({'error': f'{provider} OAuth client not available'}), 500
+        print(f"Client for {provider} created successfully")
+    except Exception as e:
+        print(f"Error creating OAuth client for {provider}: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': f'Failed to create {provider} OAuth client'}), 500
+    
+    # Redirect to the OAuth provider
+    try:
+        redirect_uri = url_for('oauth_callback', provider=provider, _external=True)
+        print(f"Redirect URI: {redirect_uri}")
+        return client.authorize_redirect(redirect_uri)
+    except Exception as e:
+        print(f"Error during OAuth redirect: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': 'Failed to initiate OAuth flow'}), 500
+
 @app.route('/api/auth/callback/<provider>')
 def oauth_callback(provider):
     """Handle OAuth callback from the provider."""
@@ -450,29 +518,6 @@ def logout():
     """Logout the current user."""
     session.clear()
     return jsonify({'message': 'Logged out successfully'})
-
-@app.route('/api/auth/user')
-def get_current_user():
-    """Get the current authenticated user."""
-    if 'user_id' not in session:
-        return jsonify({'error': 'Not authenticated'}), 401
-    
-    # Import locally to avoid circular imports
-    from database import DatabaseService
-    
-    # Get user by actual user ID instead of provider ID
-    user = DatabaseService.get_user_by_id(session['user_id'])
-    
-    if not user:
-        return jsonify({'error': 'User not found'}), 404
-    
-    return jsonify({
-        'id': user.id,
-        'email': user.email,
-        'name': user.name,
-        'provider': user.provider,
-        'avatar_url': user.avatar_url
-    })
 
 if __name__ == '__main__':
     # Configure logging

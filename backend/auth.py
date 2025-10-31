@@ -21,18 +21,18 @@ sys.path.append(os_path.path.dirname(os_path.path.abspath(__file__)))
 from database import DatabaseService
 from models import User
 
-# OAuth configuration
-GOOGLE_CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID')
-GOOGLE_CLIENT_SECRET = os.getenv('GOOGLE_CLIENT_SECRET')
-GITHUB_CLIENT_ID = os.getenv('GITHUB_CLIENT_ID')
-GITHUB_CLIENT_SECRET = os.getenv('GITHUB_CLIENT_SECRET')
-
 def init_oauth(app: Flask):
     """Initialize OAuth clients."""
     if not AUTHLIB_AVAILABLE or OAuth is None:
         return None
     
     oauth = OAuth(app)
+    
+    # OAuth configuration - read at runtime to ensure .env is loaded
+    GOOGLE_CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID')
+    GOOGLE_CLIENT_SECRET = os.getenv('GOOGLE_CLIENT_SECRET')
+    GITHUB_CLIENT_ID = os.getenv('GITHUB_CLIENT_ID')
+    GITHUB_CLIENT_SECRET = os.getenv('GITHUB_CLIENT_SECRET')
     
     # Google OAuth
     if GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET:
