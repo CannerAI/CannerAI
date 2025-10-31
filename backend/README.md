@@ -1,76 +1,220 @@
 # Canner Backend
 
-Flask backend for the Canner browser extension with authentication, response storage, and API endpoints.
+Flask REST API for managing saved responses with PostgreSQL database.
 
 ## 🚀 Quick Start
 
+### Using Docker Compose (Recommended)
+
 ```bash
-# Clone the repository
-git clone https://github.com/yourusername/canner.git
-cd canner/backend
+# From the project root directory
+docker-compose up backend postgres
 
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+# The backend will be available at http://localhost:5000
+```
 
+### Manual Setup
+
+```bash
 # Install dependencies
 pip install -r requirements.txt
+
+# Set environment variable
+export DATABASE_URL="postgresql://developer:devpassword@localhost:5432/canner_dev"
+
+# Run the application
+python app.py
+```
+
+## 📋 Prerequisites
+
+- Python 3.8+
+- PostgreSQL 12+
+- Docker & Docker Compose (for containerized setup)
+
+## ⚙️ Environment Variables
+
+```bash
+DATABASE_URL=postgresql://user:password@host:port/database_name
+```
+
+Default: `postgresql://developer:devpassword@postgres:5432/canner_dev`
+
+## 🗄️ Database
+
+This backend uses **PostgreSQL** exclusively with the following features:
+
+- **JSONB** for storing tags (native JSON support)
+- **UUID** auto-generation for primary keys
+- **Full-text search** indexes on title and content
+- **Automatic timestamps** via database triggers
+
+### Database Schema
+
+The schema is initialized via `database/init.sql`:
+
+```sql
+CREATE TABLE responses (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    title VARCHAR(255) NOT NULL,
+    content TEXT NOT NULL,
+    tags JSONB DEFAULT '[]'::jsonb,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+Features:
+- Full-text search indexes on title and content
+- JSONB index for efficient tag queries
+- Auto-update trigger for `updated_at` column
+
+## 📡 API Documentation
+
+### Get All Responses
+
+```http
+GET /api/responses
+Query params:
+  - search: Optional search term (searches title, content, and tags)
+```
 
 # Set environment variables (see below)
 # Create .env file or export variables
 
-# Run the server
-python app.py
+```http
+GET /api/responses/:id
 ```
 
 The server will start on `http://localhost:5000` with Swagger docs at `http://localhost:5000/docs/`
 
-## ⚙️ Environment Variables
+```http
+POST /api/responses
+Content-Type: application/json
 
-Create a `.env` file in the backend directory:
-
-```env
-# OAuth Configuration (required for authentication)
-GOOGLE_CLIENT_ID=your_google_client_id
-GOOGLE_CLIENT_SECRET=your_google_client_secret
-GITHUB_CLIENT_ID=your_github_client_id
-GITHUB_CLIENT_SECRET=your_github_client_secret
-
-# Flask Configuration
-SECRET_KEY=your_secret_key_here
-FRONTEND_URL=http://localhost:3000
-
-# CORS Configuration
-CORS_ALLOWED_ORIGINS=http://localhost:3000,chrome-extension://your_extension_id
-
-# Database Configuration (optional)
-DATABASE_URL=sqlite:///responses.db
+{
+  "title": "string",
+  "content": "string",
+  "tags": ["string"]
+}
 ```
 
-## OAuth Setup
+Response: 201 Created with the created response object (includes auto-generated UUID)
 
-### Google OAuth
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project or select existing
-3. Enable Google+ API
-4. Create OAuth 2.0 credentials
-5. Add authorized redirect URI: `http://localhost:5000/api/auth/callback/google`
+### Update Response
 
-### GitHub OAuth
-1. Go to GitHub Settings > Developer settings > OAuth Apps
-2. Create a new OAuth App
-3. Set Authorization callback URL: `http://localhost:5000/api/auth/callback/github`
+```http
+PUT /api/responses/:id
+Content-Type: application/json
 
-## Development
+{
+  "title": "string (optional)",
+  "content": "string (optional)",
+  "tags": ["string"] (optional)
+}
+```
 
-- Database is created automatically on first run
-- Supports both SQLite (default) and PostgreSQL
-- Hot reload enabled in debug mode
-- CORS configured for browser extension support
+Response: 200 OK with updated response object
 
-## Requirements
+### Delete Response
 
-- Python 3.8+
-- Flask 3.0.0
-- SQLite3 or PostgreSQL (optional)
-- OAuth provider credentials
+```http
+DELETE /api/responses/:id
+```
+
+Response: 204 No Content
+
+### Health Check
+
+```http
+GET /api/health
+```
+
+Response:
+```json
+{
+  "status": "healthy",
+  "timestamp": "2025-10-31T12:00:00",
+  "database": "PostgreSQL",
+  "database_connected": true
+}
+```
+
+## 🛠️ Development
+
+### Running with Docker
+
+```bash
+# Start backend with database
+docker-compose up backend postgres
+
+# View logs
+docker-compose logs -f backend
+
+# Rebuild after code changes
+docker-compose up --build backend
+```
+
+### Database Management
+
+```bash
+# Access PostgreSQL CLI
+docker-compose exec postgres psql -U developer -d canner_dev
+
+# Run pgAdmin (optional)
+docker-compose --profile admin up pgadmin
+# Access at http://localhost:8080
+# Email: admin@canner.dev
+# Password: admin123
+```
+
+### Connection Retry Logic
+
+The backend automatically retries PostgreSQL connections with exponential backoff:
+- Waits for database to be ready on startup
+- Reconnects if connection is lost
+- Maximum 5 retries with increasing delays
+
+## 📦 Dependencies
+
+- **Flask 3.0.0** - Web framework
+- **flask-cors 4.0.0** - CORS support
+- **psycopg2-binary 2.9.9** - PostgreSQL adapter
+- **python-dotenv 1.0.0** - Environment variable management
+- **flask-swagger-ui 4.11.1** - API documentation UI
+
+## 🔍 Testing
+
+```bash
+# Test health endpoint
+curl http://localhost:5000/api/health
+
+# Test create response
+curl -X POST http://localhost:5000/api/responses \
+  -H "Content-Type: application/json" \
+  -d '{"title": "Test", "content": "Test content", "tags": ["test"]}'
+
+# Test get all responses
+curl http://localhost:5000/api/responses
+
+# Test search
+curl "http://localhost:5000/api/responses?search=test"
+```
+
+## 🚨 Troubleshooting
+
+**Database connection errors:**
+- Ensure PostgreSQL is running: `docker-compose ps postgres`
+- Check DATABASE_URL is correct
+- Verify PostgreSQL health: `docker-compose exec postgres pg_isready`
+
+**Port already in use:**
+```bash
+# Change port in docker-compose.yml
+ports:
+  - "5001:5000"  # Use 5001 instead of 5000
+```
+
+## 📄 License
+
+See LICENSE file in project root.
