@@ -3,7 +3,7 @@ Database models for Canner application using PostgreSQL
 """
 
 import json
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 
 class Response:
@@ -82,7 +82,7 @@ class User:
         }
     
     @staticmethod
-    def from_db_row(row: sqlite3.Row) -> 'User':
+    def from_db_row(row: Dict[str, Any]) -> 'User':
         """Create User from database row."""
         return User(
             id=row['id'],

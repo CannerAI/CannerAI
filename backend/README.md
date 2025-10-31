@@ -7,7 +7,7 @@ Flask REST API for managing saved responses with OAuth authentication and user p
 - 🔐 OAuth authentication (Google & GitHub)
 - 👤 User profiles with topic-based organization
 - 📝 Response templates with tags and search
-- 🗄️ SQLite/PostgreSQL database support
+- 🗄️ PostgreSQL database support
 - 🌐 CORS support for browser extensions
 - 📚 Interactive API documentation with Swagger
 
@@ -131,7 +131,7 @@ FRONTEND_URL=http://localhost:3000
 CORS_ALLOWED_ORIGINS=http://localhost:3000,chrome-extension://your_extension_id
 
 # Database Configuration (optional)
-DATABASE_URL=sqlite:///responses.db
+DATABASE_URL=postgresql://developer:devpassword@localhost:5432/canner_dev
 ```
 
 Response: 201 Created with the created response object (includes auto-generated UUID)
@@ -202,13 +202,6 @@ docker-compose --profile admin up pgadmin
 # Email: admin@canner.dev
 # Password: admin123
 ```
-
-### Connection Retry Logic
-
-The backend automatically retries PostgreSQL connections with exponential backoff:
-- Waits for database to be ready on startup
-- Reconnects if connection is lost
-- Maximum 5 retries with increasing delays
 
 ## 📦 Dependencies
 

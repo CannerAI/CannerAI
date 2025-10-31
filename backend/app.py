@@ -1,6 +1,5 @@
 from flask import Flask, request, jsonify, session, url_for
 from flask_cors import CORS
-import sqlite3
 import json
 import logging
 import os
@@ -12,6 +11,22 @@ import psycopg2
 import psycopg2.extras
 from flask import Flask, jsonify, request
 from flask_cors import CORS
+
+# Load environment variables from .env file
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+    print("✅ Environment variables loaded from .env file")
+except ImportError:
+    print("⚠️  python-dotenv not available, using system environment variables")
+
+# Add the current directory to the path to import local modules
+import sys
+import os as os_path
+sys.path.append(os_path.path.dirname(os_path.path.abspath(__file__)))
+
+from auth import init_oauth, authenticate_user
+# DatabaseService will be imported locally where needed to avoid circular imports
 
 app = Flask(__name__)
 secret_key = os.getenv('SECRET_KEY')
@@ -85,11 +100,16 @@ def get_db_connection(max_retries: int = 5, base_delay: float = 1.0):
 
 def execute_query(conn, query: str, params: tuple = ()):
     """Execute a query with proper cursor handling for PostgreSQL."""
+    if conn is None:
+        return None
     cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     cursor.execute(query, params)
     # Handle both SELECT and RETURNING clauses
     if query.strip().upper().startswith("SELECT") or "RETURNING" in query.upper():
-        return cursor.fetchall()
+        result = cursor.fetchall()
+        cursor.close()
+        return result
+    cursor.close()
     return None
 
 
@@ -104,9 +124,16 @@ def init_db(max_retries: int = 10):
     for attempt in range(max_retries + 1):
         try:
             # Use DatabaseService to initialize the database
+            # Import locally to avoid circular imports
+            import sys
+            import os as os_path
+            sys.path.append(os_path.path.dirname(os_path.path.abspath(__file__)))
+            from database import DatabaseService
             DatabaseService.initialize()
             
             conn = get_db_connection()
+            if conn is None:
+                raise Exception("Failed to establish database connection")
 
             # Verify the responses table exists (created via init.sql)
             query = "SELECT COUNT(*) FROM responses"
@@ -161,6 +188,8 @@ def get_responses():
     search = request.args.get("search", "")
 
     conn = get_db_connection()
+    if conn is None:
+        return jsonify({"error": "Database connection failed"}), 500
 
     if search:
         # PostgreSQL with ILIKE for case-insensitive search
@@ -173,10 +202,7 @@ def get_responses():
         rows = execute_query(conn, query, (search_term, search_term, search_term))
     else:
         # If no user is authenticated, show responses without user_id (legacy responses)
-        if is_postgres():
-            rows = execute_query(conn, 'SELECT * FROM responses WHERE user_id IS NULL ORDER BY created_at DESC')
-        else:
-            rows = execute_query(conn, 'SELECT * FROM responses WHERE user_id IS NULL ORDER BY created_at DESC')
+        rows = execute_query(conn, 'SELECT * FROM responses WHERE user_id IS NULL ORDER BY created_at DESC')
     
     conn.close()
 
@@ -188,6 +214,8 @@ def get_responses():
 def get_response(response_id: str):
     """Get a single response by ID."""
     conn = get_db_connection()
+    if conn is None:
+        return jsonify({"error": "Database connection failed"}), 500
 
     # PostgreSQL uses UUID type
     query = "SELECT * FROM responses WHERE id = %s"
@@ -219,6 +247,8 @@ def create_response():
         user_id = session['user_id']
     
     conn = get_db_connection()
+    if conn is None:
+        return jsonify({"error": "Database connection failed"}), 500
 
     # PostgreSQL with JSONB and auto-generated UUID via RETURNING
     query = """
@@ -246,6 +276,8 @@ def update_response(response_id: str):
         return jsonify({"error": "No data provided"}), 400
 
     conn = get_db_connection()
+    if conn is None:
+        return jsonify({"error": "Database connection failed"}), 500
 
     # Check if response exists
     check_query = "SELECT * FROM responses WHERE id = %s"
@@ -277,7 +309,7 @@ def update_response(response_id: str):
             f'UPDATE responses SET {", ".join(updates)} WHERE id = %s RETURNING *'
         )
         params.append(response_id)
-        rows = execute_query(conn, query, params)
+        rows = execute_query(conn, query, tuple(params))
         response_data = dict_from_row(rows[0]) if rows else None
     else:
         response_data = dict_from_row(existing[0])
@@ -291,6 +323,8 @@ def update_response(response_id: str):
 def delete_response(response_id: str):
     """Delete a response."""
     conn = get_db_connection()
+    if conn is None:
+        return jsonify({"error": "Database connection failed"}), 500
 
     # Check if response exists
     check_query = "SELECT * FROM responses WHERE id = %s"
@@ -314,8 +348,11 @@ def health_check():
     try:
         # Test database connection
         conn = get_db_connection(max_retries=1)  # Quick test, don't wait long
+        if conn is None:
+            raise Exception("Failed to establish database connection")
         cursor = conn.cursor()
         cursor.execute("SELECT 1")
+        cursor.close()
         conn.close()
 
         return jsonify(
@@ -359,6 +396,9 @@ def oauth_callback(provider):
         # Extract token value
         token_value = token.get('access_token') if isinstance(token, dict) else token
         print(f"Token value: {token_value}")
+        
+        if token_value is None:
+            return jsonify({'error': 'Failed to get access token'}), 400
         
         user = authenticate_user(provider, token_value)
         print(f"Authenticated user: {user}")
@@ -416,6 +456,9 @@ def get_current_user():
     """Get the current authenticated user."""
     if 'user_id' not in session:
         return jsonify({'error': 'Not authenticated'}), 401
+    
+    # Import locally to avoid circular imports
+    from database import DatabaseService
     
     # Get user by actual user ID instead of provider ID
     user = DatabaseService.get_user_by_id(session['user_id'])

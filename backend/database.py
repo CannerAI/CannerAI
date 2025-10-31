@@ -5,12 +5,13 @@ Database service for managing responses using PostgreSQL
 import json
 import logging
 import os
+import uuid
 from typing import List, Optional
 
 import psycopg2
 import psycopg2.extras
 
-from models import Response
+from models import Response, User
 
 
 class DatabaseService:
@@ -202,7 +203,10 @@ class DatabaseService:
     def get_user_by_id(user_id: str) -> Optional[User]:
         """Get a user by their ID."""
         conn = DatabaseService.get_connection()
-        row = conn.execute('SELECT * FROM users WHERE id = ?', (user_id,)).fetchone()
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cursor.execute("SELECT * FROM users WHERE id = %s", (user_id,))
+        row = cursor.fetchone()
+        cursor.close()
         conn.close()
         
         if row is None:
@@ -214,7 +218,10 @@ class DatabaseService:
     def get_user_by_email(email: str) -> Optional[User]:
         """Get a user by email."""
         conn = DatabaseService.get_connection()
-        row = conn.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone()
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
+        row = cursor.fetchone()
+        cursor.close()
         conn.close()
         
         if row is None:
@@ -226,8 +233,11 @@ class DatabaseService:
     def get_user_by_provider_id(provider: str, provider_id: str) -> Optional[User]:
         """Get a user by provider and provider_id."""
         conn = DatabaseService.get_connection()
-        row = conn.execute('SELECT * FROM users WHERE provider = ? AND provider_id = ?', 
-                          (provider, provider_id)).fetchone()
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cursor.execute("SELECT * FROM users WHERE provider = %s AND provider_id = %s", 
+                      (provider, provider_id))
+        row = cursor.fetchone()
+        cursor.close()
         conn.close()
         
         if row is None:
@@ -240,15 +250,16 @@ class DatabaseService:
                    provider_id: str, avatar_url: Optional[str] = None) -> User:
         """Create a new user."""
         conn = DatabaseService.get_connection()
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         user_id = str(uuid.uuid4())
         
-        conn.execute(
-            'INSERT INTO users (id, email, name, provider, provider_id, avatar_url) VALUES (?, ?, ?, ?, ?, ?)',
+        cursor.execute(
+            "INSERT INTO users (id, email, name, provider, provider_id, avatar_url) VALUES (%s, %s, %s, %s, %s, %s) RETURNING *",
             (user_id, email, name, provider, provider_id, avatar_url)
         )
+        row = cursor.fetchone()
         conn.commit()
-        
-        row = conn.execute('SELECT * FROM users WHERE id = ?', (user_id,)).fetchone()
+        cursor.close()
         conn.close()
         
         return User.from_db_row(row)
