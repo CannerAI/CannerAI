@@ -686,6 +686,33 @@ function positionPenButton(
 ): void {
   document.body.appendChild(penButton);
 
+  // Create a persistent minimized dot that stays visible when the main button hides
+  const dot = document.createElement('div');
+  dot.className = 'social-helper-dot';
+  dot.title = penButton.title;
+  document.body.appendChild(dot);
+
+  // Clicking the dot opens the quick response menu
+  dot.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    showResponseMenu(targetBox, penButton);
+  });
+
+  // Hovering the dot will show the full pen button
+  dot.addEventListener('mouseenter', () => {
+    clearTimeout(hideTimeout);
+    showPenButton();
+  });
+
+  // Keep the dot visible as a fallback when pen is hidden
+  const showDot = () => {
+    dot.classList.add('visible');
+  };
+
+  const hideDot = () => {
+    dot.classList.remove('visible');
+  };
   let isVisible = false;
   let showTimeout: number;
   let hideTimeout: number;
@@ -739,6 +766,7 @@ function positionPenButton(
         updatePosition();
         penButton.classList.remove("hiding");
         penButton.classList.add("visible");
+        hideDot();
         isVisible = true;
       }
     }, 200);
@@ -758,6 +786,8 @@ function positionPenButton(
         penButton.classList.remove("visible");
         penButton.classList.add("hiding");
         isVisible = false;
+        // When hiding the main button, show the persistent dot so users can find the action
+        showDot();
       }
     }, 1500);
   };
@@ -787,6 +817,16 @@ function positionPenButton(
     clearTimeout(hideTimeout);
   });
 
+  // Hide the dot when user interacts with the pen button area
+  penButton.addEventListener('mouseenter', () => {
+    hideDot();
+  });
+
+  // Ensure dot is removed when the pen button is removed
+  const cleanup = () => {
+    dot.remove();
+  };
+
   penButton.addEventListener("mouseleave", hidePenButton);
 
   // Clean up listeners when element is removed
@@ -802,6 +842,7 @@ function positionPenButton(
           window.removeEventListener("scroll", updateHandler);
           window.removeEventListener("resize", updateHandler);
           penButton.remove();
+          cleanup();
           observer.disconnect();
         }
       });
