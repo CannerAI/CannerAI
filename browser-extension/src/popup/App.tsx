@@ -322,19 +322,11 @@ const App: React.FC = () => {
 
   // Login handlers
   function handleGoogleLogin() {
-    // Get API URL from Chrome storage
-    chrome.storage.local.get(['settings'], (result) => {
-      const apiUrl = result.settings?.apiUrl || "http://localhost:5000";
-      window.open(`${apiUrl}/api/auth/login/google`, '_blank');
-    });
+    window.open('http://localhost:5000/api/auth/login/google', '_blank');
   }
 
   function handleGitHubLogin() {
-    // Get API URL from Chrome storage
-    chrome.storage.local.get(['settings'], (result) => {
-      const apiUrl = result.settings?.apiUrl || "http://localhost:5000";
-      window.open(`${apiUrl}/api/auth/login/github`, '_blank');
-    });
+    window.open('http://localhost:5000/api/auth/login/github', '_blank');
   }
 
   if (!authChecked) {

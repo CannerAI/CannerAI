@@ -1,102 +1,137 @@
 # Canner Backend
 
-Flask REST API for managing saved responses with PostgreSQL database.
+Flask REST API for managing saved responses with OAuth authentication and user profiles.
 
-## 🚀 Quick Start
+## Features
 
-### Using Docker Compose (Recommended)
+- 🔐 OAuth authentication (Google & GitHub)
+- 👤 User profiles with topic-based organization
+- 📝 Response templates with tags and search
+- 🗄️ SQLite/PostgreSQL database support
+- 🌐 CORS support for browser extensions
+- 📚 Interactive API documentation with Swagger
 
+## Setup
+
+1. **Install dependencies:**
 ```bash
-# From the project root directory
-docker-compose up backend postgres
-
-# The backend will be available at http://localhost:5000
-```
-
-### Manual Setup
-
-```bash
-# Install dependencies
 pip install -r requirements.txt
-
-# Set environment variable
-export DATABASE_URL="postgresql://developer:devpassword@localhost:5432/canner_dev"
-
-# Run the application
-python app.py
 ```
 
-## 📋 Prerequisites
-
-- Python 3.8+
-- PostgreSQL 12+
-- Docker & Docker Compose (for containerized setup)
-
-## ⚙️ Environment Variables
-
+2. **Configure environment:**
 ```bash
-DATABASE_URL=postgresql://user:password@host:port/database_name
+cp .env.example .env
+# Edit .env with your OAuth credentials and settings
 ```
 
-Default: `postgresql://developer:devpassword@postgres:5432/canner_dev`
-
-## 🗄️ Database
-
-This backend uses **PostgreSQL** exclusively with the following features:
-
-- **JSONB** for storing tags (native JSON support)
-- **UUID** auto-generation for primary keys
-- **Full-text search** indexes on title and content
-- **Automatic timestamps** via database triggers
-
-### Database Schema
-
-The schema is initialized via `database/init.sql`:
-
-```sql
-CREATE TABLE responses (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    title VARCHAR(255) NOT NULL,
-    content TEXT NOT NULL,
-    tags JSONB DEFAULT '[]'::jsonb,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-```
-
-Features:
-- Full-text search indexes on title and content
-- JSONB index for efficient tag queries
-- Auto-update trigger for `updated_at` column
-
-## 📡 API Documentation
-
-### Get All Responses
-
-```http
-GET /api/responses
-Query params:
-  - search: Optional search term (searches title, content, and tags)
-```
-
-# Set environment variables (see below)
-# Create .env file or export variables
-
-```http
-GET /api/responses/:id
+3. **Run the server:**
+```bash
+python app.py
 ```
 
 The server will start on `http://localhost:5000` with Swagger docs at `http://localhost:5000/docs/`
 
-```http
-POST /api/responses
-Content-Type: application/json
+## API Documentation
 
+### Authentication Endpoints
+
+```
+GET  /api/auth/login/google     # Initiate Google OAuth
+GET  /api/auth/login/github     # Initiate GitHub OAuth
+GET  /api/auth/callback/:provider # OAuth callback handler
+GET  /api/auth/user             # Get current user info
+GET  /api/auth/logout           # Logout current user
+```
+
+### Profile Management
+
+```
+GET  /api/profiles              # Get all user profiles
+GET  /api/profiles/active       # Get active profile
+POST /api/profiles              # Create new profile
+POST /api/profiles/:id/activate # Activate profile
+DELETE /api/profiles/:id        # Delete profile
+```
+
+### Response Management
+
+```
+GET    /api/responses           # Get all responses (filtered by active profile)
+GET    /api/responses/:id       # Get single response
+POST   /api/responses           # Create response
+PUT    /api/responses/:id       # Update response
+DELETE /api/responses/:id       # Delete response
+```
+
+**Query Parameters for GET /api/responses:**
+- `search`: Optional search term (searches title, content, tags)
+
+**Request Body for POST /api/responses:**
+```json
 {
   "title": "string",
-  "content": "string",
+  "content": "string", 
   "tags": ["string"]
 }
+```
+
+### System Endpoints
+
+```
+GET /api/health                 # Health check with database status
+GET /docs/                      # Interactive Swagger documentation
+```
+
+## Database Schema
+
+### users table
+- `id` (TEXT, PRIMARY KEY) - Internal user UUID
+- `email` (TEXT, UNIQUE, NOT NULL)
+- `name` (TEXT, NOT NULL)
+- `provider` (TEXT, NOT NULL) - 'google' or 'github'
+- `provider_id` (TEXT, NOT NULL) - OAuth provider user ID
+- `avatar_url` (TEXT)
+- `created_at` (TIMESTAMP)
+- `updated_at` (TIMESTAMP)
+
+### profiles table
+- `id` (TEXT, PRIMARY KEY)
+- `user_id` (TEXT, NOT NULL) - Foreign key to users.id
+- `profile_name` (TEXT, NOT NULL)
+- `topic` (TEXT, NOT NULL)
+- `is_active` (BOOLEAN, DEFAULT FALSE)
+- `created_at` (TIMESTAMP)
+- `updated_at` (TIMESTAMP)
+
+### responses table
+- `id` (TEXT, PRIMARY KEY)
+- `title` (TEXT, NOT NULL)
+- `content` (TEXT, NOT NULL)
+- `tags` (TEXT, JSON array)
+- `profile_id` (TEXT) - Foreign key to profiles.id
+- `created_at` (TIMESTAMP)
+- `updated_at` (TIMESTAMP)
+
+## Environment Configuration
+
+Create a `.env` file with the following variables:
+
+```bash
+# OAuth Configuration
+GOOGLE_CLIENT_ID=your_google_client_id
+GOOGLE_CLIENT_SECRET=your_google_client_secret
+GITHUB_CLIENT_ID=your_github_client_id
+GITHUB_CLIENT_SECRET=your_github_client_secret
+
+# Flask Configuration
+SECRET_KEY=your_secret_key_here
+FRONTEND_URL=http://localhost:3000
+
+# CORS Configuration
+CORS_ALLOWED_ORIGINS=http://localhost:3000,chrome-extension://your_extension_id
+
+# Database Configuration (optional)
+DATABASE_URL=sqlite:///responses.db
 ```
 
 Response: 201 Created with the created response object (includes auto-generated UUID)

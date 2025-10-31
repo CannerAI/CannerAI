@@ -1,13 +1,9 @@
 const path = require('path');
 const CopyPlugin = require('copy-webpack-plugin');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
-const webpack = require('webpack');
 
 module.exports = (env, argv) => {
     const isDevelopment = argv.mode === 'development';
-    
-    // Get API URL from environment or use default
-    const apiUrl = process.env.API_URL || "http://localhost:5000";
     
     return {
         entry: {
@@ -43,9 +39,6 @@ module.exports = (env, argv) => {
             minimize: !isDevelopment
         },
         plugins: [
-            new webpack.DefinePlugin({
-                'process.env.API_URL': JSON.stringify(apiUrl)
-            }),
             new HtmlWebpackPlugin({
                 template: './src/popup/popup.html',
                 filename: 'popup.html',

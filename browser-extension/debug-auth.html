@@ -9,15 +9,12 @@
     <div id="result"></div>
     
     <script>
-        // Get API URL from localStorage or use default
-        const apiUrl = localStorage.getItem('apiUrl') || 'http://localhost:5000';
-        
         document.getElementById('testAuth').addEventListener('click', async () => {
             const resultDiv = document.getElementById('result');
             resultDiv.innerHTML = 'Testing...';
             
             try {
-                const response = await fetch(`${apiUrl}/api/auth/user`, {
+                const response = await fetch('http://localhost:5000/api/auth/user', {
                     credentials: 'include',
                     method: 'GET'
                 });

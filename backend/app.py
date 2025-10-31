@@ -341,7 +341,97 @@ def health_check():
         )
 
 
-if __name__ == "__main__":
+@app.route('/api/auth/callback/<provider>')
+def oauth_callback(provider):
+    """Handle OAuth callback from the provider."""
+    if provider not in ['google', 'github']:
+        return jsonify({'error': 'Unsupported provider'}), 400
+    
+    # Check if OAuth is properly initialized
+    if oauth is None:
+        return jsonify({'error': 'OAuth not available'}), 500
+    
+    try:
+        print(f"Processing OAuth callback for {provider}")
+        token = oauth.create_client(provider).authorize_access_token()
+        print(f"Received token: {token}")
+        
+        # Extract token value
+        token_value = token.get('access_token') if isinstance(token, dict) else token
+        print(f"Token value: {token_value}")
+        
+        user = authenticate_user(provider, token_value)
+        print(f"Authenticated user: {user}")
+        
+        if not user:
+            print("Authentication failed - no user returned")
+            return jsonify({'error': 'Authentication failed'}), 401
+        
+        # Store user info in session
+        session['user_id'] = user.id
+        session['user_provider'] = user.provider
+        session['user_email'] = user.email
+        session['user_name'] = user.name
+        session.permanent = True  # Make session permanent
+        print(f"User session stored: {session}")
+        
+        # Redirect to frontend with success message
+        return '''
+        <html>
+        <head>
+            <title>Authentication Success</title>
+        </head>
+        <body>
+            <script>
+                // Send message to opener window
+                if (window.opener) {
+                    window.opener.postMessage({"type": "oauth-success"}, "*");
+                }
+                // Close this window
+                window.close();
+            </script>
+            <div style="text-align: center; padding: 20px;">
+                <h2>Authentication Successful!</h2>
+                <p>You can close this window and return to the application.</p>
+                <button onclick="window.close()">Close Window</button>
+            </div>
+        </body>
+        </html>
+        '''
+        
+    except Exception as e:
+        print(f"OAuth callback error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': 'Authentication failed'}), 500
+
+@app.route('/api/auth/logout')
+def logout():
+    """Logout the current user."""
+    session.clear()
+    return jsonify({'message': 'Logged out successfully'})
+
+@app.route('/api/auth/user')
+def get_current_user():
+    """Get the current authenticated user."""
+    if 'user_id' not in session:
+        return jsonify({'error': 'Not authenticated'}), 401
+    
+    # Get user by actual user ID instead of provider ID
+    user = DatabaseService.get_user_by_id(session['user_id'])
+    
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    
+    return jsonify({
+        'id': user.id,
+        'email': user.email,
+        'name': user.name,
+        'provider': user.provider,
+        'avatar_url': user.avatar_url
+    })
+
+if __name__ == '__main__':
     # Configure logging
     logging.basicConfig(
         level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"

@@ -1,7 +1,6 @@
 // API utility for communicating with backend and Chrome storage
 
-// Use a configurable API URL with a fallback to localhost
-const API_URL = process.env.API_URL || "http://localhost:5000";
+const API_URL = "http://localhost:5000";
 
 export interface Response {
   id?: string;

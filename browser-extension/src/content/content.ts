@@ -1,20 +1,11 @@
 // Canner content script — injects helper UI into social sites
 console.log("Canner: Content script loaded");
 
-// Get API URL from Chrome storage or use default
-let API_URL = "http://localhost:5000";
-
-// Initialize API URL from storage
-chrome.storage.local.get(['settings'], (result) => {
-  API_URL = result.settings?.apiUrl || "http://localhost:5000";
-});
-
 const CONFIG = {
-  API_URL: () => API_URL,  // Make it a function to get the latest value
+  API_URL: "http://localhost:5000",
   BUTTON_ICON: "💬",
   BUTTON_COLOR: "#0a66c2", // LinkedIn blue
 };
-
 
 // helps to track the last focused input
 let lastFocusedInput: HTMLElement | null = null;
