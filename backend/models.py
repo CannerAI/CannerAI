@@ -27,6 +27,7 @@ class Response:
             "title": self.title,
             "content": self.content,
             "tags": self.tags,
+            "user_id": str(self.user_id) if self.user_id else None,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
         }
@@ -48,6 +49,7 @@ class Response:
             title=row["title"],
             content=row["content"],
             tags=tags,
+            user_id=str(row["user_id"]) if "user_id" in row and row["user_id"] else None,
             created_at=str(row["created_at"]) if row["created_at"] else None,
             updated_at=str(row["updated_at"]) if row["updated_at"] else None,
         )

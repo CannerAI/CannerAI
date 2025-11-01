@@ -190,30 +190,64 @@ def dict_from_row(row) -> Dict[str, Any]:
 
 @app.route("/api/responses", methods=["GET"])
 def get_responses():
-    """Get all responses, optionally filtered by search query."""
+    """Get all responses, optionally filtered by search query and user authentication.
+    
+    Returns:
+        - For authenticated users: Only their own responses
+        - For unauthenticated users: Only public responses (where user_id is NULL)
+    """
     search = request.args.get("search", "")
+    user_id = session.get('user_id')
 
     conn = get_db_connection()
     if conn is None:
         return jsonify({"error": "Database connection failed"}), 500
 
-    if search:
-        # PostgreSQL with ILIKE for case-insensitive search
-        query = """
-            SELECT * FROM responses
-            WHERE title ILIKE %s OR content ILIKE %s OR tags::text ILIKE %s
-            ORDER BY created_at DESC
-        """
-        search_term = f"%{search}%"
-        rows = execute_query(conn, query, (search_term, search_term, search_term))
-    else:
-        # If no user is authenticated, show responses without user_id (legacy responses)
-        rows = execute_query(conn, 'SELECT * FROM responses WHERE user_id IS NULL ORDER BY created_at DESC')
-    
-    conn.close()
-
-    responses = [dict_from_row(row) for row in rows] if rows else []
-    return jsonify(responses)
+    try:
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        
+        # Base query parts
+        query_parts = ["SELECT * FROM responses"]
+        params = []
+        
+        # Add user filter
+        if user_id:
+            query_parts.append("WHERE user_id = %s")
+            params.append(user_id)
+        else:
+            query_parts.append("WHERE user_id IS NULL")
+        
+        # Add search filter if provided
+        if search:
+            search_condition = "(title ILIKE %s OR content ILIKE %s OR tags::text ILIKE %s)"
+            search_term = f"%{search}%"
+            
+            if len(params) > 0:
+                query_parts.append("AND")
+            else:
+                query_parts.append("WHERE")
+                
+            query_parts.append(search_condition)
+            params.extend([search_term, search_term, search_term])
+        
+        # Add ordering
+        query_parts.append("ORDER BY created_at DESC")
+        
+        # Execute the query
+        query = " ".join(query_parts)
+        cursor.execute(query, params)
+        rows = cursor.fetchall()
+        
+        responses = [dict_from_row(row) for row in rows]
+        return jsonify(responses)
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+        
+    finally:
+        if 'cursor' in locals():
+            cursor.close()
+        conn.close()
 
 
 @app.route("/api/responses/<response_id>", methods=["GET"])
@@ -248,29 +282,49 @@ def create_response():
     tags = data.get('tags', [])
     
     # Get user_id for current user if authenticated
-    user_id = None
-    if 'user_id' in session:
-        user_id = session['user_id']
+    user_id = session.get('user_id')
     
     conn = get_db_connection()
     if conn is None:
         return jsonify({"error": "Database connection failed"}), 500
 
-    # PostgreSQL with JSONB and auto-generated UUID via RETURNING
-    query = """
-        INSERT INTO responses (title, content, tags)
-        VALUES (%s, %s, %s)
-        RETURNING *
-    """
-    rows = execute_query(conn, query, (title, content, json.dumps(tags)))
-    response_data = dict_from_row(rows[0]) if rows else None
-
-    conn.close()
-
-    if not response_data:
-        return jsonify({"error": "Failed to create response"}), 500
-
-    return jsonify(response_data), 201
+    try:
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        
+        if user_id:
+            # Create response with user_id for authenticated users
+            query = """
+                INSERT INTO responses (title, content, tags, user_id)
+                VALUES (%s, %s, %s, %s)
+                RETURNING *
+            """
+            cursor.execute(query, (title, content, json.dumps(tags), user_id))
+        else:
+            # Create response without user_id for unauthenticated users
+            query = """
+                INSERT INTO responses (title, content, tags)
+                VALUES (%s, %s, %s)
+                RETURNING *
+            """
+            cursor.execute(query, (title, content, json.dumps(tags)))
+            
+        row = cursor.fetchone()
+        conn.commit()
+        
+        if row:
+            response_data = dict_from_row(row)
+            return jsonify(response_data), 201
+        else:
+            return jsonify({"error": "Failed to create response"}), 500
+            
+    except Exception as e:
+        conn.rollback()
+        return jsonify({"error": str(e)}), 500
+        
+    finally:
+        if 'cursor' in locals():
+            cursor.close()
+        conn.close()
 
 
 @app.route("/api/responses/<response_id>", methods=["PATCH"])
@@ -384,19 +438,57 @@ def health_check():
         )
 
 
-@app.route('/api/auth/user')
-def get_current_user():
-    """Get the current authenticated user."""
+@app.route('/api/auth/status')
+def auth_status():
+    """Check authentication status and return user info if authenticated."""
     user_id = session.get('user_id')
     if not user_id:
+        return jsonify({"authenticated": False})
+    
+    conn = get_db_connection()
+    if conn is None:
+        return jsonify({"error": "Database connection failed"}), 500
+        
+    try:
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cursor.execute("SELECT * FROM users WHERE id = %s", (user_id,))
+        user = cursor.fetchone()
+        
+        if user:
+            return jsonify({
+                "authenticated": True,
+                "user": {
+                    "id": user['id'],
+                    "email": user['email'],
+                    "name": user['name'],
+                    "provider": user['provider'],
+                    "avatar_url": user['avatar_url']
+                }
+            })
+        else:
+            # User not found in database, clear session
+            session.clear()
+            return jsonify({"authenticated": False})
+            
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+        
+    finally:
+        if 'cursor' in locals():
+            cursor.close()
+        conn.close()
+
+@app.route('/api/auth/user')
+def get_current_user():
+    """Get the current authenticated user.
+    
+    This is kept for backward compatibility. New code should use /api/auth/status.
+    """
+    status = auth_status()
+    if status.status_code != 200 or not status.json.get('authenticated'):
         return jsonify({'error': 'Not authenticated'}), 401
-    
-    # Import locally to avoid circular imports
-    from database import DatabaseService
-    user = DatabaseService.get_user_by_id(user_id)
-    if not user:
-        return jsonify({'error': 'User not found'}), 404
-    
+    return jsonify(status.json['user'])
+
     return jsonify(user.to_dict())
 
 @app.route('/api/auth/login/<provider>')

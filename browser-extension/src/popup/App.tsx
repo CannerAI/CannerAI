@@ -389,6 +389,27 @@ const App: React.FC = () => {
                 </svg>
                 Sign in with GitHub
               </button>
+
+              <div className="login-divider">
+                <span>or</span>
+              </div>
+
+              <button 
+                className="btn-login btn-continue" 
+                onClick={() => setCurrentUser({ 
+                  id: 'guest', 
+                  email: 'guest@example.com', 
+                  name: 'Guest User',
+                  provider: 'guest'
+                })}
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
+                  <polyline points="10 17 15 12 10 7"></polyline>
+                  <line x1="15" y1="12" x2="3" y2="12"></line>
+                </svg>
+                Continue without signing in
+              </button>
             </div>
             
             <div className="login-info">

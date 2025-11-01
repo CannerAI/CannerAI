@@ -25,9 +25,13 @@ CREATE TABLE IF NOT EXISTS responses (
     title VARCHAR(255) NOT NULL,
     content TEXT NOT NULL,
     tags JSONB DEFAULT '[]'::jsonb,
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Create index on user_id for faster user-specific queries
+CREATE INDEX IF NOT EXISTS idx_responses_user_id ON responses (user_id);
 
 -- Create index on title for faster searches
 CREATE INDEX IF NOT EXISTS idx_responses_title ON responses USING gin(to_tsvector('english', title));
