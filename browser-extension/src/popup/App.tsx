@@ -521,38 +521,19 @@ const App: React.FC = () => {
                   <div className="card-body">
                     <div className="card-main">
                       <div className="card-main-inner">
-                        <p className="card-content">{r.content}</p>
+                        <p className={`card-content ${expandedIds.has(r.id!) ? 'expanded' : ''}`}>
+                          {r.content}
+                        </p>
                         <button
                           className={`btn-more ${expandedIds.has(r.id!) ? "open" : ""}`}
                           aria-expanded={expandedIds.has(r.id!)}
-                          aria-label="Show full content"
+                          aria-label={expandedIds.has(r.id!) ? "Show less" : "Show more"}
                           onClick={() => toggleExpand(r.id)}
                         >
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <path d="M6 9l6 6 6-6"/>
                           </svg>
                         </button>
-
-                        {expandedIds.has(r.id!) && (
-                          <div className="content-dropdown" role="dialog" aria-modal="false">
-                            <div className="content-dropdown-inner">
-                              <pre className="full-content" aria-label="Full response content">{r.content}</pre>
-                              <div className="dropdown-actions">
-                                <button
-                                  className="btn-action"
-                                  onClick={() => {
-                                    navigator.clipboard.writeText(r.content);
-                                    setNotification("✓ Copied");
-                                    toggleExpand(r.id);
-                                  }}
-                                  aria-label="Copy full content"
-                                >
-                                  Copy
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        )}
 
                         {Array.isArray(r.tags) && r.tags.length > 0 && (
                           <div className="card-tags">
