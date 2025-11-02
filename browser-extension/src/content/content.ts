@@ -24,6 +24,8 @@ function trackFocusedInputs() {
 // Track injected elements to avoid duplicates
 const injectedElements = new Set<string>();
 const suggestionManagers: Record<string, InlineSuggestionManager> = {} as any;
+// Track buttons per input to prevent duplicates
+const penButtonMap = new WeakMap<HTMLElement, HTMLElement>();
 
 // Simple Inline Suggestion Manager
 class InlineSuggestionManager {
@@ -508,10 +510,18 @@ function addMessageHelpers() {
     'input[type="text"][placeholder*="comment" i]',
     '[aria-label*="Tweet" i][contenteditable="true"]',
     '[aria-label*="Reply" i][contenteditable="true"]',
+    '[aria-label*="Comment" i][contenteditable="true"]',
     '[data-text="true"][contenteditable="true"]',
     '.comments-comment-box [contenteditable="true"]',
     '.msg-form [contenteditable="true"]',
     '.share-creation-state [contenteditable="true"]',
+    // LinkedIn specific selectors
+    '[role="textbox"][contenteditable="true"]',
+    '.ql-editor[contenteditable="true"]',
+    '.editor[contenteditable="true"]',
+    '.comment-input[contenteditable="true"]',
+    'div[contenteditable="true"][aria-label*="comment" i]',
+    'div[contenteditable="true"][placeholder*="comment" i]',
   ];
 
   const messageBoxes = document.querySelectorAll(selectors.join(", "));
@@ -529,8 +539,9 @@ function addMessageHelpers() {
       rect.height
     );
 
-    if (rect.width < 100 || rect.height < 20) {
-      console.log(`Social Helper: Skipping element ${index + 1} - too small`);
+    // More lenient size check - accept smaller inputs
+    if (rect.width < 50 || rect.height < 15) {
+      console.log(`Social Helper: Skipping element ${index + 1} - too small (${rect.width}x${rect.height})`);
       return;
     }
 
@@ -558,42 +569,45 @@ function addMessageHelpers() {
       return;
     }
 
-    // Check if button already exists nearby
-    const container =
-      (box as HTMLElement).closest("div") || (box as HTMLElement).parentElement;
-    if (container?.querySelector(".social-helper-pen")) {
-      console.log(
-        `Social Helper: Button already exists for element ${index + 1}`
-      );
-      // Ensure a SuggestionManager is attached even if button was already present.
-      // Resolve the actual editable inside this box (same logic as below).
-      try {
-        const resolvedEditable = ((): HTMLElement => {
-          const el = box as HTMLElement;
-          if (el.getAttribute && el.getAttribute("contenteditable") === "true") return el;
-          const inner = el.querySelector?.('[contenteditable="true"], textarea, input[type="text"]') as HTMLElement | null;
-          return inner || el;
-        })();
+    // Check if button already exists for this input element
+    if (penButtonMap.has(box as HTMLElement)) {
+      const existingButton = penButtonMap.get(box as HTMLElement);
+      if (existingButton && document.body.contains(existingButton)) {
+        console.log(
+          `Social Helper: Button already exists for element ${index + 1}`
+        );
+        // Ensure a SuggestionManager is attached even if button was already present.
+        // Resolve the actual editable inside this box (same logic as below).
+        try {
+          const resolvedEditable = ((): HTMLElement => {
+            const el = box as HTMLElement;
+            if (el.getAttribute && el.getAttribute("contenteditable") === "true") return el;
+            const inner = el.querySelector?.('[contenteditable="true"], textarea, input[type="text"]') as HTMLElement | null;
+            return inner || el;
+          })();
 
-        if (!resolvedEditable.id) {
-          resolvedEditable.id = `${box.id}-editable`;
-        }
+          if (!resolvedEditable.id) {
+            resolvedEditable.id = `${box.id}-editable`;
+          }
 
-        if (!suggestionManagers[resolvedEditable.id]) {
-          suggestionManagers[resolvedEditable.id] = new InlineSuggestionManager(resolvedEditable as HTMLElement);
+          if (!suggestionManagers[resolvedEditable.id]) {
+            suggestionManagers[resolvedEditable.id] = new InlineSuggestionManager(resolvedEditable as HTMLElement);
+          }
+        } catch (err) {
+          console.error("Canner: Failed to attach SuggestionManager:", err);
         }
-      } catch (err) {
-        console.error("Canner: Failed to attach SuggestionManager:", err);
+        injectedElements.add(box.id);
+        return;
       }
-      injectedElements.add(box.id);
-      return;
     }
 
-    console.log(`Social Helper: Creating pen button for element ${index + 1}`);
+    console.log(`Social Helper: Creating pen button for element ${index + 1}`, box);
 
     // Create minimized pen button
     const penButton = createPenButton(box as HTMLElement);
+    console.log(`Social Helper: Button created:`, penButton);
     positionPenButton(box as HTMLElement, penButton);
+    console.log(`Social Helper: Button positioned for element ${index + 1}`);
 
     // Resolve the actual editable element inside this box (Twitter often wraps the real
     // contenteditable inside additional divs). Attach the SuggestionManager to the
@@ -655,6 +669,13 @@ function createPenButton(targetBox: HTMLElement): HTMLElement {
   `;
   penContainer.title = "Click for quick responses (Ctrl+Shift+L)";
 
+  // Ensure button is visible immediately
+  penContainer.style.display = "flex";
+  penContainer.style.visibility = "visible";
+  penContainer.style.opacity = "1";
+  penContainer.style.pointerEvents = "all";
+  penContainer.style.zIndex = "99999";
+
   // Add click handler
   penContainer.addEventListener("click", (e) => {
     e.preventDefault();
@@ -679,115 +700,371 @@ function createPenButton(targetBox: HTMLElement): HTMLElement {
   return penContainer;
 }
 
-// Position the pen button relative to the input
+// Position the pen button relative to the input (Grammarly-style fixed positioning)
 function positionPenButton(
   inputElement: HTMLElement,
   penButton: HTMLElement
 ): void {
-  document.body.appendChild(penButton);
+  // Check if button already exists for this input
+  if (penButtonMap.has(inputElement)) {
+    const existingButton = penButtonMap.get(inputElement);
+    if (existingButton && document.body.contains(existingButton)) {
+      // Button already exists, don't create another one
+      return;
+    }
+  }
 
-  let isVisible = false;
-  let showTimeout: number;
-  let hideTimeout: number;
+  penButtonMap.set(inputElement, penButton);
+  document.body.appendChild(penButton);
+  
+  // DEBUG: Log button creation
+  console.log('Canner: Button created and appended to body', {
+    inputElement,
+    penButton,
+    inBody: document.body.contains(penButton),
+    buttonStyle: window.getComputedStyle(penButton)
+  });
+
+  let rafId: number | null = null;
+
+  // Find existing icons in the input area to avoid overlap
+  const findExistingIcons = (container: HTMLElement): { rightEdge: number, hasIcons: boolean } => {
+    let rightEdge = 0;
+    let hasIcons = false;
+
+    // Find the input container (usually a parent div)
+    const inputContainer = container.closest('div') || container.parentElement;
+    if (!inputContainer) return { rightEdge: 0, hasIcons: false };
+
+    const containerRect = inputContainer.getBoundingClientRect();
+    const inputRect = container.getBoundingClientRect();
+
+    // Check all buttons and interactive elements in the container
+    const allButtons = inputContainer.querySelectorAll('button, [role="button"], [data-testid], svg');
+    allButtons.forEach((element: Element) => {
+      const el = element as HTMLElement;
+      // Skip our own button
+      if (el.classList.contains('social-helper-pen') || el.closest('.social-helper-pen')) {
+        return;
+      }
+      
+      const iconRect = el.getBoundingClientRect();
+      
+      // Only count icons that are:
+      // 1. Inside the input container vertically
+      // 2. On the right side of the input (avoid left side text area)
+      // 3. Small enough to be icons (not large containers)
+      // 4. Near the bottom of the input (where icons typically are)
+      const isInContainer = iconRect.top >= containerRect.top && iconRect.bottom <= containerRect.bottom;
+      const isOnRightSide = iconRect.left > inputRect.left + (inputRect.width * 0.5); // Right half
+      const isSmallEnough = iconRect.width < 60 && iconRect.height < 60; // Likely an icon, not container
+      const isNearBottom = iconRect.bottom > inputRect.top + (inputRect.height * 0.6); // Bottom 40%
+      
+      if (isInContainer && isOnRightSide && isSmallEnough && isNearBottom) {
+        if (iconRect.right > rightEdge) {
+          rightEdge = iconRect.right;
+          hasIcons = true;
+        }
+      }
+    });
+
+    // Also check for fixed position elements that might be extensions (like Grammarly)
+    // Only check elements near the input to avoid performance issues
+    try {
+      const checkX = Math.max(0, Math.min(inputRect.right - 30, window.innerWidth - 1));
+      const checkY = Math.max(0, Math.min(inputRect.bottom - 10, window.innerHeight - 1));
+      
+      // Check document elements that might be fixed extensions at this point
+      const allElements = document.elementsFromPoint(checkX, checkY);
+      allElements.forEach((element: Element) => {
+        const el = element as HTMLElement;
+        if (!el || el.classList?.contains('social-helper-pen')) {
+          return;
+        }
+        
+        const iconRect = el.getBoundingClientRect();
+        const computedStyle = window.getComputedStyle(el);
+        
+        // Check if it's a small fixed element near our input
+        const distanceFromInput = Math.abs(iconRect.right - inputRect.right);
+        const verticalDistance = Math.abs(iconRect.bottom - inputRect.bottom);
+        const isSmall = iconRect.width < 50 && iconRect.height < 50;
+        const isFixed = computedStyle.position === 'fixed' || computedStyle.position === 'absolute';
+        
+        // Must be close to input, small, fixed/absolute, and not contain the input
+        if (distanceFromInput < 100 && verticalDistance < 30 && isSmall && isFixed && !el.contains(inputElement)) {
+          // This might be an extension button (like Grammarly)
+          if (iconRect.right > rightEdge) {
+            rightEdge = iconRect.right;
+            hasIcons = true;
+          }
+        }
+      });
+    } catch (e) {
+      // elementsFromPoint can fail in some edge cases, ignore
+      console.debug('Icon detection error:', e);
+    }
+
+    return { rightEdge, hasIcons };
+  };
+
+  // Store last valid position to prevent random jumps
+  let lastValidPosition = { top: 0, left: 0 };
+  let positionStableCount = 0;
+  
+  // Cache icon detection to avoid expensive checks every frame
+  let iconDetectionCache: { rightEdge: number, hasIcons: boolean, timestamp: number } | null = null;
+  const iconCacheTimeout = 1000; // Cache for 1 second
 
   const updatePosition = () => {
     const rect = inputElement.getBoundingClientRect();
+    const computedStyle = window.getComputedStyle(inputElement);
 
-    // Check if element is still visible
-    if (rect.width === 0 || rect.height === 0) {
-      hidePenButton();
+    // Only hide button if input is completely removed from DOM
+    if (!inputElement.isConnected || !document.body.contains(penButton)) {
+      console.log('Canner: Input or button removed from DOM');
+      return;
+    }
+    
+    // Check if explicitly hidden (very strict - only hide if display: none)
+    const explicitlyHidden = computedStyle.display === 'none';
+    
+    // ALWAYS show button if input exists in DOM - don't check dimensions!
+    // Even collapsed/empty inputs should show the button
+    if (!explicitlyHidden) {
+      // ALWAYS force visibility with !important
+      penButton.style.setProperty('display', 'flex', 'important');
+      penButton.style.setProperty('visibility', 'visible', 'important');
+      penButton.style.setProperty('opacity', '1', 'important');
+      penButton.style.setProperty('pointer-events', 'all', 'important');
+      penButton.style.setProperty('z-index', '99999', 'important');
+    } else {
+      console.log('Canner: Input has display:none, not positioning button');
       return;
     }
 
-    // Smart positioning like Grammarly
-    let top = rect.bottom - 45; // Position near bottom-right like Grammarly
-    let right = window.innerWidth - rect.right + 8;
-
-    // For larger inputs (like compose areas), position in bottom-right
-    if (rect.height > 60) {
-      top = rect.bottom - 50;
-      right = window.innerWidth - rect.right + 12;
+    // Find existing icons to avoid overlap (with caching)
+    let iconInfo: { rightEdge: number, hasIcons: boolean };
+    const now = Date.now();
+    
+    // Use cached result if available and fresh
+    if (iconDetectionCache && (now - iconDetectionCache.timestamp) < iconCacheTimeout) {
+      iconInfo = { rightEdge: iconDetectionCache.rightEdge, hasIcons: iconDetectionCache.hasIcons };
+    } else {
+      // Re-detect icons and cache result
+      iconInfo = findExistingIcons(inputElement);
+      iconDetectionCache = {
+        rightEdge: iconInfo.rightEdge,
+        hasIcons: iconInfo.hasIcons,
+        timestamp: now
+      };
+    }
+    
+    // Position at bottom-right, but with smart spacing to avoid other icons
+    const offsetBottom = 12;
+    const dotSize = 14;
+    const safeSpacing = 60; // Safe distance from right edge to avoid icon conflicts
+    
+    // Calculate position relative to viewport (fixed positioning uses viewport coordinates)
+    let top = rect.bottom - offsetBottom;
+    let left: number;
+    
+    // Smart positioning: 
+    // 1. If icons detected, position before them with safe spacing
+    // 2. Otherwise, position near right edge but with safe margin
+    if (iconInfo.hasIcons && iconInfo.rightEdge > 0) {
+      // Position before the detected icons
+      left = iconInfo.rightEdge - safeSpacing;
+      // Ensure we don't go too far left (stay within input bounds)
+      left = Math.max(rect.left + 10, left);
+    } else {
+      // No icons detected, position on right with safe margin
+      left = rect.right - safeSpacing;
+      // But don't go too far left if input is narrow
+      left = Math.max(rect.left + 10, left);
     }
 
-    // For inputs near the edge, adjust positioning
-    if (rect.right > window.innerWidth - 60) {
-      right = window.innerWidth - rect.left + 8;
+    // Ensure button stays within viewport and input bounds
+    const minLeft = Math.max(rect.left + 8, 10);
+    const maxLeft = Math.min(
+      window.innerWidth - dotSize - 10, 
+      rect.right - 10 // Always leave 10px margin from right edge
+    );
+    const minTop = Math.max(10, rect.top + 5);
+    const maxTop = Math.min(window.innerHeight - dotSize - 10, rect.bottom - 5);
+
+    // Clamp position within safe bounds
+    left = Math.max(minLeft, Math.min(left, maxLeft));
+    top = Math.max(minTop, Math.min(top, maxTop));
+
+    // Prevent random jumps - only update if change is significant (> 2px)
+    const positionChanged = Math.abs(lastValidPosition.left - left) > 2 || 
+                           Math.abs(lastValidPosition.top - top) > 2;
+
+    if (positionChanged) {
+      positionStableCount = 0;
+      lastValidPosition = { top, left };
+    } else {
+      positionStableCount++;
+      // After 3 stable checks, use last known good position to prevent jitter
+      if (positionStableCount > 3 && lastValidPosition.top > 0 && lastValidPosition.left > 0) {
+        top = lastValidPosition.top;
+        left = lastValidPosition.left;
+      }
     }
 
-    // For inputs near the bottom, position above
-    if (rect.bottom > window.innerHeight - 60) {
-      top = rect.top - 50;
-    }
-
-    // Ensure button is always visible
-    top = Math.max(8, Math.min(top, window.innerHeight - 60));
-    right = Math.max(8, right);
-
+    // Apply position with consistent rounding
     penButton.style.position = "fixed";
-    penButton.style.top = `${top}px`;
-    penButton.style.right = `${right}px`;
-    penButton.style.zIndex = "10000";
+    penButton.style.top = `${Math.round(top)}px`;
+    penButton.style.left = `${Math.round(left)}px`;
+    penButton.style.right = "auto";
+    penButton.style.bottom = "auto";
+    penButton.style.zIndex = "99999";
+    penButton.style.margin = "0";
+    penButton.style.padding = "0";
+    penButton.style.visibility = "visible";
   };
 
-  const showPenButton = () => {
-    clearTimeout(hideTimeout);
-    clearTimeout(showTimeout);
-
-    // Small delay like Grammarly
-    showTimeout = window.setTimeout(() => {
-      if (!isVisible) {
-        updatePosition();
-        penButton.classList.remove("hiding");
-        penButton.classList.add("visible");
-        isVisible = true;
-      }
-    }, 200);
-  };
-
-  const hidePenButton = () => {
-    clearTimeout(showTimeout);
-    clearTimeout(hideTimeout);
-
-    // Longer delay before hiding like Grammarly
-    hideTimeout = window.setTimeout(() => {
-      if (
-        isVisible &&
-        !penButton.matches(":hover") &&
-        !inputElement.matches(":focus")
-      ) {
-        penButton.classList.remove("visible");
-        penButton.classList.add("hiding");
-        isVisible = false;
-      }
-    }, 1500);
-  };
-
-  // Initial positioning (hidden)
-  updatePosition();
-
-  // Update position on scroll and resize
-  const updateHandler = () => {
-    if (isVisible) {
+  // Throttled update function using requestAnimationFrame
+  const throttledUpdate = () => {
+    if (rafId !== null) return;
+    rafId = requestAnimationFrame(() => {
       updatePosition();
-    }
+      rafId = null;
+    });
   };
 
-  window.addEventListener("scroll", updateHandler, { passive: true });
-  window.addEventListener("resize", updateHandler, { passive: true });
+  // Initial positioning - force immediate visibility
+  updatePosition();
+  
+  // Force visibility function - ALWAYS show button when input exists in DOM
+  const forceVisibility = () => {
+    // If input is connected to DOM, ALWAYS show button - don't check dimensions
+    if (!inputElement.isConnected) {
+      console.log('Canner: Input not connected to DOM, hiding button');
+      return false;
+    }
+    
+    const rect = inputElement.getBoundingClientRect();
+    const computedStyle = window.getComputedStyle(inputElement);
+    
+    // Check if explicitly hidden (display: none, visibility: hidden, opacity: 0)
+    const explicitlyHidden = computedStyle.display === 'none' || 
+                            computedStyle.visibility === 'hidden' ||
+                            computedStyle.opacity === '0';
+    
+    // Show button UNLESS explicitly hidden
+    // Even if rect is 0x0 (collapsed), still show it - it might expand on interaction
+    if (!explicitlyHidden) {
+      // ALWAYS force visibility with !important
+      penButton.style.setProperty('display', 'flex', 'important');
+      penButton.style.setProperty('visibility', 'visible', 'important');
+      penButton.style.setProperty('opacity', '1', 'important');
+      penButton.style.setProperty('pointer-events', 'all', 'important');
+      penButton.style.setProperty('z-index', '99999', 'important');
+      
+      // Update position even if input is collapsed (it will position relative to container)
+      updatePosition();
+      
+      // DEBUG
+      const finalRect = penButton.getBoundingClientRect();
+      const inputRect = inputElement.getBoundingClientRect();
+      console.log('Canner: Button visibility forced', {
+        inputRect,
+        buttonPosition: { top: penButton.style.top, left: penButton.style.left },
+        buttonRect: finalRect,
+        buttonVisible: finalRect.width > 0 && finalRect.height > 0,
+        inViewport: finalRect.top >= 0 && finalRect.left >= 0 && 
+                   finalRect.bottom <= window.innerHeight && 
+                   finalRect.right <= window.innerWidth,
+        computedStyle: {
+          display: window.getComputedStyle(penButton).display,
+          visibility: window.getComputedStyle(penButton).visibility,
+          opacity: window.getComputedStyle(penButton).opacity,
+          zIndex: window.getComputedStyle(penButton).zIndex
+        }
+      });
+      
+      return true;
+    }
+    
+    console.log('Canner: Input explicitly hidden, not showing button');
+    return false;
+  };
+  
+  // ALWAYS force visibility immediately (multiple times to be safe)
+  forceVisibility();
+  setTimeout(() => forceVisibility(), 0);
+  setTimeout(() => forceVisibility(), 50);
+  setTimeout(() => forceVisibility(), 100);
+  setTimeout(() => forceVisibility(), 200);
+  setTimeout(() => forceVisibility(), 500);
+  setTimeout(() => forceVisibility(), 1000);
+  setTimeout(() => forceVisibility(), 2000);
+  
+  // Also force visibility on ANY interaction with input
+  inputElement.addEventListener('focus', forceVisibility, { passive: true });
+  inputElement.addEventListener('mouseenter', forceVisibility, { passive: true });
+  inputElement.addEventListener('click', forceVisibility, { passive: true });
+  inputElement.addEventListener('input', forceVisibility, { passive: true });
+  
+  // Use Intersection Observer to ensure button is visible when input is visible
+  const intersectionObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting && entry.intersectionRatio > 0) {
+        forceVisibility();
+      }
+    });
+  }, { threshold: 0.01, rootMargin: '50px' });
+  
+  intersectionObserver.observe(inputElement);
+  
+  // Also observe parent container in case input itself is hidden but container is visible
+  const parentContainer = inputElement.parentElement || inputElement.closest('div');
+  if (parentContainer && parentContainer !== inputElement) {
+    intersectionObserver.observe(parentContainer);
+  }
+  
+  // Periodic check to ensure button stays visible (handles dynamically loaded content)
+  let periodicCheck: number;
+  periodicCheck = window.setInterval(() => {
+    if (inputElement.isConnected && document.body.contains(penButton)) {
+      const style = window.getComputedStyle(inputElement);
+      
+      // If input is not display:none, ALWAYS show button (even if dimensions are 0)
+      if (style.display !== 'none') {
+        forceVisibility();
+      }
+    } else {
+      // Clean up if input was removed
+      clearInterval(periodicCheck);
+    }
+  }, 2000); // Check every 2 seconds
 
-  // Show/hide based on input interaction (like Grammarly)
-  inputElement.addEventListener("focus", showPenButton);
-  inputElement.addEventListener("blur", hidePenButton);
-  inputElement.addEventListener("input", showPenButton);
-  inputElement.addEventListener("mouseenter", showPenButton);
-  inputElement.addEventListener("mouseleave", hidePenButton);
+  // Update position on scroll and resize (throttled)
+  const scrollHandler = throttledUpdate;
+  const resizeHandler = throttledUpdate;
 
-  // Keep button visible when hovering over it
-  penButton.addEventListener("mouseenter", () => {
-    clearTimeout(hideTimeout);
+  window.addEventListener("scroll", scrollHandler, { passive: true });
+  window.addEventListener("resize", resizeHandler, { passive: true });
+
+  // Update position when input element moves (with debounce)
+  let updateTimeout: number;
+  const inputObserver = new MutationObserver(() => {
+    clearTimeout(updateTimeout);
+    updateTimeout = window.setTimeout(throttledUpdate, 100);
   });
 
-  penButton.addEventListener("mouseleave", hidePenButton);
+  // Observe input element container for position changes
+  const container = inputElement.closest('div') || inputElement.parentElement;
+  if (container) {
+    inputObserver.observe(container, {
+      attributes: true,
+      attributeFilter: ['style', 'class'],
+      childList: true,
+      subtree: false
+    });
+  }
 
   // Clean up listeners when element is removed
   const observer = new MutationObserver((mutations) => {
@@ -795,12 +1072,19 @@ function positionPenButton(
       mutation.removedNodes.forEach((node) => {
         if (
           node === inputElement ||
-          (node as HTMLElement)?.contains?.(inputElement)
+          (node as HTMLElement)?.contains?.(inputElement) ||
+          node === penButton ||
+          (node as HTMLElement)?.contains?.(penButton)
         ) {
-          clearTimeout(showTimeout);
-          clearTimeout(hideTimeout);
-          window.removeEventListener("scroll", updateHandler);
-          window.removeEventListener("resize", updateHandler);
+          window.removeEventListener("scroll", scrollHandler);
+          window.removeEventListener("resize", resizeHandler);
+          inputObserver.disconnect();
+          intersectionObserver.disconnect();
+          clearInterval(periodicCheck);
+          if (rafId !== null) {
+            cancelAnimationFrame(rafId);
+          }
+          penButtonMap.delete(inputElement);
           penButton.remove();
           observer.disconnect();
         }
