@@ -668,9 +668,28 @@ kbd {
 }
 
 .form-textarea {
-  resize: vertical;
-  min-height: 120px;
+  resize: none;
+  height: 120px;
   line-height: 1.6;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.form-textarea::-webkit-scrollbar {
+  width: 6px;
+}
+
+.form-textarea::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.form-textarea::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 3px;
+}
+
+.form-textarea::-webkit-scrollbar-thumb:hover {
+  background: var(--text-tertiary);
 }
 
 .modal-footer {
