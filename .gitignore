@@ -195,3 +195,7 @@ instance/
 *.tmp
 *.temp
 *.log
+# Database files
+*.db
+*.sqlite
+*.sqlite3
