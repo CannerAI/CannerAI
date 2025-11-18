@@ -8,9 +8,41 @@
 [![Python](https://img.shields.io/badge/Python-3.12-3776AB.svg)](https://python.org)
 
 ## ✨ Features
-- Select from a variety of pre-defined response templates
-- Format linkedin post with Ease
+✨ Features
+Select from a variety of pre-defined response templates
 
+Format LinkedIn post with Ease
+
+Full backend response management API (Flask + PostgreSQL):
+
+Create, read, update, and delete responses via REST endpoints
+
+Store title, content, tags (JSON), and timestamps for each response
+
+Health check endpoint for verifying API/database status
+
+🗄️ Backend API Endpoints
+Your backend exposes these API endpoints (ready for frontend integration):
+
+Method	Endpoint	Description
+GET	/api/responses	List all responses
+POST	/api/responses	Add new response (JSON body)
+GET	/api/responses/<id>	View a specific response
+PATCH	/api/responses/<id>	Edit response fields
+DELETE	/api/responses/<id>	Delete a response
+GET	/api/health	Health check/status
+Sample Response Object:
+
+json
+{
+  "id": "uuid-string",
+  "title": "string",
+  "content": "string",
+  "tags": ["string", "string"],
+  "created_at": "timestamp",
+  "updated_at": "timestamp"
+}
+These endpoints are ready for integration into any frontend—connect via fetch/Axios to display, search, add, edit, and delete responses!
 ## 🏗 Architecture
 
 Here’s an overview of how **Canner** works internally:

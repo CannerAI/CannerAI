@@ -4,6 +4,8 @@ import os
 import time
 from datetime import datetime
 from typing import Any, Dict
+from dotenv import load_dotenv
+load_dotenv()
 
 import psycopg2
 import psycopg2.extras
