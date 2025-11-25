@@ -1,6 +1,42 @@
+<<<<<<< HEAD
 node_modules/
 dist/
 *.log
 .DS_Store
 .env
 *.zip
+=======
+# Python virtual environment
+.venv/
+venv/
+
+# Linting cache files
+.eslintcache
+.markdownlintcache
+.flake8_cache/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+>>>>>>> bb64cef6996a2cd817dda203f4ca8d02ef8334d9
