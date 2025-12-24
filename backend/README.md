@@ -1,6 +1,6 @@
 # Canner Backend
 
-Flask REST API for managing saved responses with PostgreSQL database.
+Flask REST API for managing canned responses with MongoDB database.
 
 ## 🚀 Quick Start
 
@@ -8,7 +8,7 @@ Flask REST API for managing saved responses with PostgreSQL database.
 
 ```bash
 # From the project root directory
-docker-compose up backend postgres
+docker compose up --build
 
 # The backend will be available at http://localhost:5000
 ```
@@ -19,8 +19,9 @@ docker-compose up backend postgres
 # Install dependencies
 pip install -r requirements.txt
 
-# Set environment variable
-export DATABASE_URL="postgresql://developer:devpassword@localhost:5432/canner_dev"
+# Set environment variables (copy and edit .env.example)
+cp .env.example .env.development
+# Edit .env.development with your MongoDB connection string
 
 # Run the application
 python app.py
@@ -29,45 +30,75 @@ python app.py
 ## 📋 Prerequisites
 
 - Python 3.8+
-- PostgreSQL 12+
+- MongoDB Atlas account (free tier available) OR Local MongoDB installation
 - Docker & Docker Compose (for containerized setup)
 
 ## ⚙️ Environment Variables
 
 ```bash
-DATABASE_URL=postgresql://user:password@host:port/database_name
+# MongoDB Atlas (Cloud)
+DATABASE_URL=mongodb+srv://username:password@cluster.mongodb.net/?retryWrites=true&w=majority
+MONGODB_DB_NAME=cannerai_db
+
+# Or Local MongoDB
+DATABASE_URL=mongodb://localhost:27017/
+MONGODB_DB_NAME=cannerai_dev
+
+# Flask Configuration
+FLASK_ENV=development
+FLASK_DEBUG=1
+FLASK_APP=app.py
 ```
 
-Default: `postgresql://developer:devpassword@postgres:5432/canner_dev`
+See `.env.example` for a complete configuration template.
 
 ## 🗄️ Database
 
-This backend uses **PostgreSQL** exclusively with the following features:
+This backend uses **MongoDB** with the following features:
 
-- **JSONB** for storing tags (native JSON support)
-- **UUID** auto-generation for primary keys
+- **Document-based storage** for flexible schema
+- **Array fields** for tags
 - **Full-text search** indexes on title and content
-- **Automatic timestamps** via database triggers
+- **Automatic timestamps** (created_at, updated_at)
+- **ObjectId** for unique document identifiers
 
 ### Database Schema
 
-The schema is initialized via `database/init.sql`:
+The database is initialized automatically via `database/init.js`:
 
-```sql
-CREATE TABLE responses (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    title VARCHAR(255) NOT NULL,
-    content TEXT NOT NULL,
-    tags JSONB DEFAULT '[]'::jsonb,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
+```javascript
+// Collection: canned_responses
+{
+  _id: ObjectId,              // Auto-generated unique identifier
+  title: String,              // Response title
+  content: String,            // Response content
+  tags: Array<String>,        // Tags for categorization
+  created_at: Date,           // Creation timestamp
+  updated_at: Date            // Last update timestamp
+}
 ```
 
-Features:
-- Full-text search indexes on title and content
-- JSONB index for efficient tag queries
-- Auto-update trigger for `updated_at` column
+### Indexes
+
+The following indexes are automatically created for optimal performance:
+
+- **Text Index**: `title` and `content` for full-text search
+- **Tags Index**: For efficient tag-based filtering
+- **Created At Index**: For chronological sorting
+- **Updated At Index**: For recent updates queries
+
+```javascript
+// Text search index
+db.canned_responses.createIndex(
+  { title: 'text', content: 'text' },
+  { weights: { title: 2, content: 1 } }
+)
+
+// Other indexes
+db.canned_responses.createIndex({ tags: 1 })
+db.canned_responses.createIndex({ created_at: -1 })
+db.canned_responses.createIndex({ updated_at: -1 })
+```
 
 ## 📡 API Documentation
 
@@ -98,7 +129,19 @@ Content-Type: application/json
 }
 ```
 
-Response: 201 Created with the created response object (includes auto-generated UUID)
+Response: 201 Created with the created response object (includes auto-generated ObjectId)
+
+Example response:
+```json
+{
+  "id": "507f1f77bcf86cd799439011",
+  "title": "Welcome Message",
+  "content": "Thank you for reaching out!",
+  "tags": ["greeting", "general"],
+  "created_at": "2025-12-25T10:00:00.000Z",
+  "updated_at": "2025-12-25T10:00:00.000Z"
+}
+```
 
 ### Update Response
 
@@ -133,8 +176,8 @@ Response:
 ```json
 {
   "status": "healthy",
-  "timestamp": "2025-10-31T12:00:00",
-  "database": "PostgreSQL",
+  "timestamp": "2025-12-25T12:00:00",
+  "database": "MongoDB",
   "database_connected": true
 }
 ```
@@ -144,32 +187,46 @@ Response:
 ### Running with Docker
 
 ```bash
-# Start backend with database
-docker-compose up backend postgres
+# Start backend
+docker compose up --build
 
 # View logs
-docker-compose logs -f backend
+docker compose logs -f backend
 
-# Rebuild after code changes
-docker-compose up --build backend
+# Stop services
+docker compose down
 ```
 
 ### Database Management
 
-```bash
-# Access PostgreSQL CLI
-docker-compose exec postgres psql -U developer -d canner_dev
+#### Option 1: MongoDB Compass (GUI)
 
-# Run pgAdmin (optional)
-docker-compose --profile admin up pgadmin
-# Access at http://localhost:8080
-# Email: admin@canner.dev
-# Password: admin123
+1. Download [MongoDB Compass](https://www.mongodb.com/products/compass)
+2. Connect using your connection string:
+   - Atlas: `mongodb+srv://username:password@cluster.mongodb.net/`
+   - Local: `mongodb://localhost:27017/`
+3. Navigate to `cannerai_db` > `canned_responses`
+
+#### Option 2: MongoDB Shell (CLI)
+
+```bash
+# Connect to MongoDB
+mongosh "mongodb://localhost:27017/cannerai_db"
+# Or for Atlas
+mongosh "mongodb+srv://username:password@cluster.mongodb.net/cannerai_db"
+
+# Useful commands
+show dbs                                    # List databases
+use cannerai_db                             # Switch to database
+show collections                            # List collections
+db.canned_responses.find().pretty()         # View all documents
+db.canned_responses.countDocuments()        # Count documents
+db.canned_responses.getIndexes()            # View indexes
 ```
 
 ### Connection Retry Logic
 
-The backend automatically retries PostgreSQL connections with exponential backoff:
+The backend automatically retries MongoDB connections with exponential backoff:
 - Waits for database to be ready on startup
 - Reconnects if connection is lost
 - Maximum 5 retries with increasing delays
@@ -178,7 +235,7 @@ The backend automatically retries PostgreSQL connections with exponential backof
 
 - **Flask 3.0.0** - Web framework
 - **flask-cors 4.0.0** - CORS support
-- **psycopg2-binary 2.9.9** - PostgreSQL adapter
+- **pymongo 4.6.1** - MongoDB driver for Python
 - **python-dotenv 1.0.0** - Environment variable management
 - **flask-swagger-ui 4.11.1** - API documentation UI
 
@@ -203,9 +260,23 @@ curl "http://localhost:5000/api/responses?search=test"
 ## 🚨 Troubleshooting
 
 **Database connection errors:**
-- Ensure PostgreSQL is running: `docker-compose ps postgres`
-- Check DATABASE_URL is correct
-- Verify PostgreSQL health: `docker-compose exec postgres pg_isready`
+- Verify MongoDB connection string in `.env.development`
+- For Atlas: Check if your IP is whitelisted in Atlas Network Access
+- For Local: Ensure MongoDB service is running: `sudo systemctl status mongod`
+- Check database logs for authentication errors
+
+**Common Connection Issues:**
+
+```bash
+# Test MongoDB connection
+mongosh "your-connection-string" --eval "db.adminCommand('ping')"
+
+# Check if MongoDB is running locally
+sudo systemctl status mongod
+
+# Start MongoDB locally
+sudo systemctl start mongod
+```
 
 **Port already in use:**
 ```bash
@@ -213,6 +284,11 @@ curl "http://localhost:5000/api/responses?search=test"
 ports:
   - "5001:5000"  # Use 5001 instead of 5000
 ```
+
+**Atlas Connection Issues:**
+- Ensure your IP address is whitelisted in Atlas Network Access
+- Verify username and password are correct
+- Check that the database user has read/write permissions
 
 ## 📄 License
 

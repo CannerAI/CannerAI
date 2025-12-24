@@ -48,15 +48,53 @@ cd canner
 
 ### Building up Backend
 
-1. **Set up the development environment:**
+1. **Set up MongoDB:**
+
+   **Option A: Use MongoDB Atlas (Cloud - Recommended)**
+   - Create a free account at [MongoDB Atlas](https://www.mongodb.com/cloud/atlas)
+   - Create a new cluster (Free tier available)
+   - Get your connection string
+   - Create a database user with read/write permissions
+   
+   👉 **Need help?** Follow our [MongoDB Atlas Setup Guide](docs/MONGODB_SETUP_GUIDE.md)
+
+   **Option B: Use Local MongoDB**
+   - Install MongoDB locally from [mongodb.com](https://www.mongodb.com/try/download/community)
+   - Start MongoDB service: `sudo systemctl start mongod`
+
+2. **Configure environment variables:**
 
    ```bash
-   - Using Dev Containers
-     Press F1 then: Dev Containers: Rebuild and Reopen in Containers
-
-
-   cd backend && python -m venv venv && source venv/bin/activate && pip install -r requirements.txt && python app.py
+   cd backend
+   
+   # Copy the example environment file
+   cp .env.example .env.development
+   
+   # Edit .env.development and add your MongoDB connection string
+   # For MongoDB Atlas:
+   DATABASE_URL=mongodb+srv://your-username:your-password@cluster0.xxxxx.mongodb.net/?retryWrites=true&w=majority
+   MONGODB_DB_NAME=cannerai_db
    ```
+
+3. **Start the backend:**
+
+   ```bash
+   # Using Docker (Recommended)
+   docker compose up --build
+   
+   # Or manually
+   cd backend
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   pip install -r requirements.txt
+   python app.py
+   ```
+
+   The backend will automatically:
+   - Connect to MongoDB
+   - Create the `canned_responses` collection
+   - Set up necessary indexes
+   - Start on http://localhost:5000
 
 ### Building up Frontend
 
@@ -131,119 +169,129 @@ dist/
    - Check the browser toolbar for the extension icon
 
 
-### Access pgAdmin & Configure Database
+### Access & Manage MongoDB Database
 
-After building the frontend, you can access the database management interface:
+After setting up the backend, you can manage your MongoDB database using various tools:
 
-1. **Open pgAdmin in Browser:**
-   
-   Navigate to: **http://localhost:8080**
+#### Option 1: MongoDB Compass (Recommended GUI Tool)
 
-2. **Login to pgAdmin:**
+1. **Download MongoDB Compass:**
    
-   - **Email:** `admin@canner.dev`
-   - **Password:** `admin123`
+   - Download from [MongoDB Compass](https://www.mongodb.com/products/compass)
+   - Install for your operating system
 
-3. **Register PostgreSQL Server:**
+2. **Connect to Your Database:**
    
-   a. Right-click **"Servers"** in the left sidebar
+   a. Open MongoDB Compass
    
-   b. Select **"Register" → "Server"**
+   b. Enter your connection string:
    
-   c. **General Tab:**
-      - Name: `Canner Dev` (or any name you prefer)
-   
-   d. **Connection Tab:**
-      - Host name/address: `postgres` ⚠️ **Important:** Use `postgres` (container name), not `localhost`
-      - Port: `5432`
-      - Maintenance database: `canner_dev`
-      - Username: `developer`
-      - Password: `devpassword`
-      - ☑️ Check "Save password" (optional, for convenience)
-   
-   e. Click **"Save"**
-
-4. **Browse the Database:**
-   
-   Once connected, expand the tree structure:
+   **For MongoDB Atlas:**
    ```
-   Servers
-     └─ Canner Dev
-         └─ Databases
-             └─ canner_dev
-                 └─ Schemas
-                     └─ public
-                         └─ Tables
-                             └─ responses
+   mongodb+srv://your-username:your-password@cluster0.xxxxx.mongodb.net/
+   ```
+   
+   **For Local MongoDB:**
+   ```
+   mongodb://localhost:27017/
+   ```
+   
+   c. Click **"Connect"**
+
+3. **Browse the Database:**
+   
+   Once connected, navigate to:
+   ```
+   Databases
+     └─ cannerai_db (or cannerai_dev)
+         └─ Collections
+             └─ canned_responses
    ```
 
-5. **Common Database Tasks:**
+4. **Common Database Tasks:**
    
-   - **View table data:** Right-click on `responses` → "View/Edit Data" → "All Rows"
-   - **Run SQL queries:** Right-click on `canner_dev` → "Query Tool"
-   - **Check table structure:** Expand `responses` → Click "Columns"
+   - **View documents:** Click on `canned_responses` collection
+   - **Filter data:** Use the filter bar (e.g., `{title: "example"}`)
+   - **Add document:** Click "Add Data" → "Insert Document"
+   - **Check indexes:** Click "Indexes" tab to view all indexes
 
-> **Tip:** If you can't connect, wait 10-20 seconds for PostgreSQL to fully initialize, then try again.
+#### Option 2: MongoDB Shell (Command Line)
 
-### Check Tables Using psql (Command Line)
+Use MongoDB Shell (mongosh) to interact with the database:
 
-Alternatively, you can use the PostgreSQL command-line tool to inspect the database:
-
-1. **Connect to PostgreSQL:**
+1. **Install MongoDB Shell:**
    
    ```bash
-   # From inside the dev container or backend container
-   psql -h postgres -U developer -d canner_dev
-   
-   # From your host machine
-   psql -h localhost -p 5432 -U developer -d canner_dev
-   ```
-   
-   When prompted, enter password: `devpassword`
-
-2. **Useful psql Commands:**
-   
-   ```sql
-   -- List all databases
-   \l
-   
-   -- Connect to canner_dev database (if not already connected)
-   \c canner_dev
-   
-   -- List all tables
-   \dt
-   
-   -- Describe the responses table structure
-   \d responses
-   
-   -- View all data in responses table
-   SELECT * FROM responses;
-   
-   -- Count total responses
-   SELECT COUNT(*) FROM responses;
-   
-   -- View recent responses (last 10)
-   SELECT id, title, created_at FROM responses ORDER BY created_at DESC LIMIT 10;
-   
-   -- Search responses by title
-   SELECT * FROM responses WHERE title LIKE '%example%';
-   
-   -- Exit psql
-   \q
+   # Install mongosh
+   # Visit: https://www.mongodb.com/docs/mongodb-shell/install/
    ```
 
-3. **Quick Database Health Check:**
+2. **Connect to MongoDB:**
    
    ```bash
-   # Test database connection (one-liner)
-   psql -h postgres -U developer -d canner_dev -c "SELECT COUNT(*) as total_responses FROM responses;"
+   # For MongoDB Atlas
+   mongosh "mongodb+srv://your-username:your-password@cluster0.xxxxx.mongodb.net/"
    
-   # View database version
-   psql -h postgres -U developer -d canner_dev -c "SELECT version();"
-   
-   # Check if table exists
-   psql -h postgres -U developer -d canner_dev -c "\dt responses"
+   # For Local MongoDB
+   mongosh "mongodb://localhost:27017/"
    ```
+
+3. **Useful MongoDB Commands:**
+   
+   ```javascript
+   // List all databases
+   show dbs
+   
+   // Switch to cannerai_db
+   use cannerai_db
+   
+   // List all collections
+   show collections
+   
+   // View all documents in canned_responses
+   db.canned_responses.find().pretty()
+   
+   // Count total canned responses
+   db.canned_responses.countDocuments()
+   
+   // View recent responses (last 10)
+   db.canned_responses.find().sort({created_at: -1}).limit(10)
+   
+   // Search responses by title (case-insensitive)
+   db.canned_responses.find({title: /example/i})
+   
+   // Check indexes
+   db.canned_responses.getIndexes()
+   
+   // Exit mongosh
+   exit
+   ```
+
+4. **Quick Database Health Check:**
+   
+   ```bash
+   # Test database connection and count documents (one-liner)
+   mongosh "mongodb://localhost:27017/cannerai_db" --eval "db.canned_responses.countDocuments()"
+   
+   # View MongoDB version
+   mongosh --version
+   
+   # List all collections in database
+   mongosh "mongodb://localhost:27017/cannerai_db" --eval "show collections"
+   ```
+
+#### Option 3: MongoDB Atlas Web Interface
+
+If you're using MongoDB Atlas:
+
+1. Go to [MongoDB Atlas](https://cloud.mongodb.com)
+2. Log in to your account
+3. Select your cluster
+4. Click "Browse Collections"
+5. Navigate to `cannerai_db` → `canned_responses`
+6. View, edit, and manage documents directly in the browser
+
+> **Tip:** MongoDB Atlas provides built-in monitoring, backup, and performance insights for your database.
 
 
 ### Test the Extension
