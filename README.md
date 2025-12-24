@@ -24,6 +24,74 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 
 
 ## 🚀 Quick Start
+
+### Prerequisites
+- Docker & Docker Compose
+- MongoDB Atlas account (free tier) OR local MongoDB
+- Node.js 18+ (for browser extension development)
+- Chrome or Firefox browser
+
+### 1. Set Up MongoDB
+
+**Option A: MongoDB Atlas (Recommended)**
+1. Create a free account at [MongoDB Atlas](https://www.mongodb.com/cloud/atlas)
+2. Create a new cluster (Free M0 tier available)
+3. Create a database user with read/write permissions
+4. Get your connection string (it will look like: `mongodb+srv://username:password@cluster.mongodb.net/`)
+5. Whitelist your IP address in Network Access
+
+👉 **New to MongoDB Atlas?** Follow our detailed [MongoDB Atlas Setup Guide](docs/MONGODB_SETUP_GUIDE.md)
+
+**Option B: Local MongoDB**
+1. Install MongoDB from [mongodb.com](https://www.mongodb.com/try/download/community)
+2. Start MongoDB: `sudo systemctl start mongod`
+3. Your connection string will be: `mongodb://localhost:27017/`
+
+### 2. Configure Backend
+
+```bash
+# Navigate to backend directory
+cd backend
+
+# Copy environment example file
+cp .env.example .env.development
+
+# Edit .env.development with your MongoDB credentials
+# For Atlas: DATABASE_URL=mongodb+srv://username:password@cluster.mongodb.net/
+# For Local: DATABASE_URL=mongodb://localhost:27017/
+```
+
+### 3. Start the Application
+
+```bash
+# From project root
+docker compose up --build
+
+# Backend will be available at http://localhost:5000
+# Test it: curl http://localhost:5000/api/health
+```
+
+### 4. Build & Install Browser Extension
+
+```bash
+# Navigate to extension directory
+cd browser-extension
+
+# Install dependencies and build
+npm install
+npm run build
+
+# Load in Chrome:
+# 1. Go to chrome://extensions/
+# 2. Enable "Developer mode"
+# 3. Click "Load unpacked"
+# 4. Select the browser-extension/dist/ folder
+```
+
+### 5. Verify Setup
+
+Follow the [Setup Verification Guide](SETUP_VERIFICATION.md) to ensure everything is working correctly.
+
 A detailed Quick Start is written in our [Contributing Guide](CONTRIBUTING.md). You can go through it for more details. 
 
 

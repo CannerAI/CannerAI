@@ -4,10 +4,9 @@ FROM python:3.12-slim
 # Set working directory
 WORKDIR /app
 
-# Install system dependencies for PostgreSQL and health checks
+# Install system dependencies for build tools and health checks
 RUN apt-get update && apt-get install -y \
     gcc \
-    postgresql-client \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
@@ -17,7 +16,7 @@ COPY requirements.txt .
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application code (exclude wait-for-postgres.py as it's no longer needed)
+# Copy application code
 COPY app.py database.py models.py ./
 
 # Create a non-root user for security
