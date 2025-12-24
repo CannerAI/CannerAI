@@ -1,134 +1,160 @@
 """
-Database service for managing responses using PostgreSQL
+Database service for managing responses using MongoDB
 """
 
-import json
 import logging
 import os
+import time
+from datetime import datetime
 from typing import List, Optional
 
-import psycopg2
-import psycopg2.extras
+from bson import ObjectId
+from pymongo import MongoClient, ASCENDING, DESCENDING, TEXT
+from pymongo.errors import ConnectionFailure, ServerSelectionTimeoutError
 
 from models import Response
 
 
 class DatabaseService:
-    """Service for database operations with PostgreSQL."""
+    """Service for database operations with MongoDB."""
 
     @staticmethod
     def get_connection(max_retries: int = 5, base_delay: float = 1.0):
-        """Get PostgreSQL database connection with retry logic.
+        """Get MongoDB database connection with retry logic.
         
         Args:
             max_retries: Maximum number of connection attempts
             base_delay: Base delay between retries (exponential backoff)
+            
+        Returns:
+            MongoDB database instance
         """
-        db_url = os.getenv("DATABASE_URL", "postgresql://developer:devpassword@postgres:5432/canner_dev")
+        db_url = os.getenv("DATABASE_URL", "mongodb+srv://souradip1000_db_user:UuMUS8w3ioNgGnaT@cluster0.ntltgfz.mongodb.net/?appName=Cluster0")
+        db_name = os.getenv("MONGODB_DB_NAME", "cannerai_db")
         
         for attempt in range(max_retries + 1):
             try:
-                conn = psycopg2.connect(db_url)
-                conn.autocommit = True
+                client = MongoClient(db_url, serverSelectionTimeoutMS=5000)
                 
                 # Test the connection
-                cursor = conn.cursor()
-                cursor.execute("SELECT 1")
-                cursor.close()
+                client.admin.command('ping')
+                
+                # Get the database
+                db = client[db_name]
                 
                 if attempt > 0:
-                    logging.info(f"✅ PostgreSQL connection established after {attempt} retries")
-                return conn
+                    logging.info(f"✅ MongoDB connection established after {attempt} retries")
+                return db
                 
-            except (psycopg2.OperationalError, psycopg2.DatabaseError) as e:
+            except (ConnectionFailure, ServerSelectionTimeoutError) as e:
                 if attempt == max_retries:
-                    logging.error(f"❌ Failed to connect to PostgreSQL after {max_retries} attempts: {e}")
+                    logging.error(f"❌ Failed to connect to MongoDB after {max_retries} attempts: {e}")
                     raise
                 
                 delay = base_delay * (2 ** attempt)  # Exponential backoff
-                logging.warning(f"⚠️  PostgreSQL connection attempt {attempt + 1} failed, retrying in {delay}s: {e}")
-                import time
+                logging.warning(f"⚠️  MongoDB connection attempt {attempt + 1} failed, retrying in {delay}s: {e}")
                 time.sleep(delay)
 
     @staticmethod
     def initialize():
-        """Initialize database schema.
+        """Initialize database collections and indexes.
         
-        Note: Schema is typically initialized via init.sql in docker-entrypoint-initdb.d
-        This method can be used for ensuring schema exists.
+        Note: Collections and indexes are typically created via init.js
+        This method verifies connectivity and ensures indexes exist.
         """
-        # Schema is created via database/init.sql during PostgreSQL initialization
-        # This is just a connectivity check
-        conn = DatabaseService.get_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT COUNT(*) FROM responses")
-        cursor.close()
-        conn.close()
+        db = DatabaseService.get_connection()
+        
+        # Verify the canned_responses collection exists
+        if 'canned_responses' not in db.list_collection_names():
+            db.create_collection('canned_responses')
+        
+        # Ensure indexes exist
+        collection = db['canned_responses']
+        
+        # Text index for full-text search
+        try:
+            collection.create_index(
+                [('title', TEXT), ('content', TEXT)],
+                name='idx_canned_responses_text_search',
+                weights={'title': 2, 'content': 1},
+                default_language='english'
+            )
+        except Exception:
+            pass  # Index might already exist
+        
+        # Other indexes
+        collection.create_index([('tags', ASCENDING)], name='idx_canned_responses_tags', background=True)
+        collection.create_index([('created_at', DESCENDING)], name='idx_canned_responses_created_at', background=True)
+        collection.create_index([('updated_at', DESCENDING)], name='idx_canned_responses_updated_at', background=True)
+        
         logging.info("✅ Database schema verified")
 
     @staticmethod
     def get_all_responses(search: Optional[str] = None) -> List[Response]:
         """Get all responses, optionally filtered."""
-        conn = DatabaseService.get_connection()
-        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        db = DatabaseService.get_connection()
+        collection = db['canned_responses']
 
         if search:
-            # PostgreSQL with ILIKE for case-insensitive search
-            query = """
-                SELECT * FROM responses
-                WHERE title ILIKE %s OR content ILIKE %s OR tags::text ILIKE %s
-                ORDER BY created_at DESC
-            """
-            search_term = f"%{search}%"
-            cursor.execute(query, (search_term, search_term, search_term))
+            # MongoDB text search or regex for partial matching
+            # Using $text for full-text search on indexed fields
+            try:
+                query = {'$text': {'$search': search}}
+                cursor = collection.find(query).sort('created_at', DESCENDING)
+            except Exception:
+                # Fallback to regex if text index not available or search is too specific
+                query = {
+                    '$or': [
+                        {'title': {'$regex': search, '$options': 'i'}},
+                        {'content': {'$regex': search, '$options': 'i'}},
+                        {'tags': {'$regex': search, '$options': 'i'}}
+                    ]
+                }
+                cursor = collection.find(query).sort('created_at', DESCENDING)
         else:
-            cursor.execute("SELECT * FROM responses ORDER BY created_at DESC")
+            cursor = collection.find().sort('created_at', DESCENDING)
 
-        rows = cursor.fetchall()
-        cursor.close()
-        conn.close()
-        
-        return [Response.from_db_row(row) for row in rows]
+        return [Response.from_db_row(doc) for doc in cursor]
 
     @staticmethod
     def get_response_by_id(response_id: str) -> Optional[Response]:
         """Get a response by ID."""
-        conn = DatabaseService.get_connection()
-        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        db = DatabaseService.get_connection()
+        collection = db['canned_responses']
         
-        cursor.execute("SELECT * FROM responses WHERE id = %s", (response_id,))
-        row = cursor.fetchone()
-        
-        cursor.close()
-        conn.close()
-
-        if row is None:
+        try:
+            doc = collection.find_one({'_id': ObjectId(response_id)})
+        except Exception:
+            # Invalid ObjectId format
             return None
 
-        return Response.from_db_row(row)
+        if doc is None:
+            return None
+
+        return Response.from_db_row(doc)
 
     @staticmethod
     def create_response(title: str, content: str, tags: List[str]) -> Response:
         """Create a new response.
         
-        Note: PostgreSQL auto-generates UUID, no need to pass response_id
+        Note: MongoDB auto-generates ObjectId
         """
-        conn = DatabaseService.get_connection()
-        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        db = DatabaseService.get_connection()
+        collection = db['canned_responses']
 
-        # PostgreSQL RETURNING clause gets the created record in one query
-        query = """
-            INSERT INTO responses (title, content, tags)
-            VALUES (%s, %s, %s)
-            RETURNING *
-        """
-        cursor.execute(query, (title, content, json.dumps(tags)))
-        row = cursor.fetchone()
+        now = datetime.utcnow()
+        doc = {
+            'title': title,
+            'content': content,
+            'tags': tags,
+            'created_at': now,
+            'updated_at': now
+        }
         
-        cursor.close()
-        conn.close()
-
-        return Response.from_db_row(row)
+        result = collection.insert_one(doc)
+        doc['_id'] = result.inserted_id
+        
+        return Response.from_db_row(doc)
 
     @staticmethod
     def update_response(
@@ -138,62 +164,54 @@ class DatabaseService:
         tags: Optional[List[str]] = None,
     ) -> Optional[Response]:
         """Update an existing response."""
-        conn = DatabaseService.get_connection()
-        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        db = DatabaseService.get_connection()
+        collection = db['canned_responses']
 
-        # Check if exists
-        cursor.execute("SELECT * FROM responses WHERE id = %s", (response_id,))
-        row = cursor.fetchone()
-        
-        if row is None:
-            cursor.close()
-            conn.close()
+        try:
+            object_id = ObjectId(response_id)
+        except Exception:
             return None
 
-        # Build update query
-        updates = []
-        params = []
+        # Check if exists
+        doc = collection.find_one({'_id': object_id})
+        
+        if doc is None:
+            return None
+
+        # Build update document
+        update_fields = {'updated_at': datetime.utcnow()}
 
         if title is not None:
-            updates.append("title = %s")
-            params.append(title)
+            update_fields['title'] = title
 
         if content is not None:
-            updates.append("content = %s")
-            params.append(content)
+            update_fields['content'] = content
 
         if tags is not None:
-            updates.append("tags = %s")
-            params.append(json.dumps(tags))
+            update_fields['tags'] = tags
 
-        if updates:
-            # updated_at is automatically updated by trigger
-            query = f'UPDATE responses SET {", ".join(updates)} WHERE id = %s RETURNING *'
-            params.append(response_id)
-            cursor.execute(query, params)
-            row = cursor.fetchone()
+        # Update the document
+        collection.update_one(
+            {'_id': object_id},
+            {'$set': update_fields}
+        )
+        
+        # Fetch updated document
+        doc = collection.find_one({'_id': object_id})
 
-        cursor.close()
-        conn.close()
-
-        return Response.from_db_row(row) if row else None
+        return Response.from_db_row(doc) if doc else None
 
     @staticmethod
     def delete_response(response_id: str) -> bool:
         """Delete a response."""
-        conn = DatabaseService.get_connection()
-        cursor = conn.cursor()
+        db = DatabaseService.get_connection()
+        collection = db['canned_responses']
 
-        cursor.execute("SELECT * FROM responses WHERE id = %s", (response_id,))
-        row = cursor.fetchone()
-        
-        if row is None:
-            cursor.close()
-            conn.close()
+        try:
+            object_id = ObjectId(response_id)
+        except Exception:
             return False
 
-        cursor.execute("DELETE FROM responses WHERE id = %s", (response_id,))
-        cursor.close()
-        conn.close()
-
-        return True
+        result = collection.delete_one({'_id': object_id})
+        
+        return result.deleted_count > 0

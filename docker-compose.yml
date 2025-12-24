@@ -3,30 +3,6 @@ version: "3.8"
 name: cannerai
 
 services:
-  # PostgreSQL Database
-  postgres:
-    image: postgres:15-alpine
-    container_name: canner_postgres
-    environment:
-      POSTGRES_DB: canner_dev
-      POSTGRES_USER: developer
-      POSTGRES_PASSWORD: devpassword
-      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --lc-collate=C --lc-ctype=C"
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./database/init.sql:/docker-entrypoint-initdb.d/01-init.sql
-      - ./database/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql
-    networks:
-      - network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U developer -d canner_dev"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-
   # Backend Flask Application
   backend:
     build:
@@ -34,7 +10,8 @@ services:
       dockerfile: Dockerfile
     container_name: canner_backend
     environment:
-      - DATABASE_URL=postgresql://developer:devpassword@postgres:5432/canner_dev
+      - DATABASE_URL=mongodb+srv://souradip1000_db_user:UuMUS8w3ioNgGnaT@cluster0.ntltgfz.mongodb.net/?appName=Cluster0
+      - MONGODB_DB_NAME=cannerai_db
       - FLASK_ENV=development
       - FLASK_DEBUG=1
       - FLASK_APP=app.py
@@ -43,39 +20,10 @@ services:
     volumes:
       - ./backend:/app
       - /app/__pycache__
-    depends_on:
-      postgres:
-        condition: service_healthy
     networks:
       - network
     restart: unless-stopped
-    # Self-retryable app - no wait script needed!
     command: ["python", "app.py"]
-
-  # pgAdmin for database management (optional)
-  pgadmin:
-    image: dpage/pgadmin4:latest
-    container_name: canner_pgadmin
-    environment:
-      PGADMIN_DEFAULT_EMAIL: admin@canner.dev
-      PGADMIN_DEFAULT_PASSWORD: admin123
-      PGADMIN_CONFIG_SERVER_MODE: "False"
-    ports:
-      - "8080:80"
-    volumes:
-      - pgadmin_data:/var/lib/pgadmin
-    depends_on:
-      - postgres
-    networks:
-      - network
-    profiles:
-      - admin
-
-volumes:
-  postgres_data:
-    driver: local
-  pgadmin_data:
-    driver: local
 
 networks:
   network:
