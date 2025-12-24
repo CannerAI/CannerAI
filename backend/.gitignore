@@ -30,6 +30,14 @@ wheels/
 *.sqlite
 *.sqlite3
 
+# Environment files with credentials
+.env
+.env.local
+.env.development
+.env.production
+*.env
+!.env.example
+
 # IDE
 .vscode/
 .idea/
