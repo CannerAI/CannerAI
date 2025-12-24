@@ -1,8 +1,7 @@
 """
-Database models for Canner application using PostgreSQL
+Database models for Canner application using MongoDB
 """
 
-import json
 from typing import Any, Dict, List
 
 
@@ -28,7 +27,7 @@ class Response:
     def to_dict(self) -> Dict[str, Any]:
         """Convert response to dictionary."""
         return {
-            "id": str(self.id),  # UUID to string
+            "id": str(self.id),
             "title": self.title,
             "content": self.content,
             "tags": self.tags,
@@ -37,22 +36,23 @@ class Response:
         }
 
     @staticmethod
-    def from_db_row(row: Dict[str, Any]) -> "Response":
-        """Create Response from PostgreSQL database row (RealDictRow).
+    def from_db_row(doc: Dict[str, Any]) -> "Response":
+        """Create Response from MongoDB document.
         
         Args:
-            row: Database row from psycopg2.extras.RealDictCursor
+            doc: MongoDB document from collection
         """
-        # Handle tags - could be list (JSONB) or string (JSON text)
-        tags = row["tags"] if row["tags"] is not None else []
-        if isinstance(tags, str):
-            tags = json.loads(tags)
+        # MongoDB uses _id (ObjectId) instead of id (UUID)
+        # Tags are already a list in MongoDB
+        tags = doc.get("tags", [])
+        if tags is None:
+            tags = []
             
         return Response(
-            id=str(row["id"]),  # UUID to string
-            title=row["title"],
-            content=row["content"],
+            id=str(doc["_id"]),  # ObjectId to string
+            title=doc["title"],
+            content=doc["content"],
             tags=tags,
-            created_at=str(row["created_at"]) if row["created_at"] else None,
-            updated_at=str(row["updated_at"]) if row["updated_at"] else None,
+            created_at=doc["created_at"].isoformat() if doc.get("created_at") else None,
+            updated_at=doc["updated_at"].isoformat() if doc.get("updated_at") else None,
         )
