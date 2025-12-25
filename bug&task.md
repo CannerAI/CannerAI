@@ -25,5 +25,17 @@
 
 
 # Task - 2
- Fix the position and size of the quickresponse button. and it should remain open when the popup open 
+ Fix the position and size of the quickresponse button, and it should remain open when the popup open + shift the popup so that some extra space should be visible of the DM box
 
+## ✅ Completed Task
+
+### Fix Button Size, Position & Visibility
+- [x] **Button Styling:** 
+    - Decreased button size.
+    - Perfectly centered the pen icon using flexbox.
+- [x] **Persistent Visibility:** 
+    - Implemented `.active` class logic.
+    - Button now remains visible (opacity 1) whenever the popup menu is
+- [x] **Positioning Adjustments:**
+    -Shifted the button position slightly downwards relative to the input box.
+    -Adjusted popup anchoring to ensure the DM box remains visible/accessible.
