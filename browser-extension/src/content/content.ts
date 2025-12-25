@@ -19,7 +19,12 @@ async function createResponsePopup(
   const existingPopup = document.querySelector(".social-helper-menu");
   if (existingPopup) {
     existingPopup.remove();
+    document.querySelectorAll(".social-helper-pen.active, .cannerai-quick-response-btn.active").forEach(btn => {
+      btn.classList.remove("active");
+    });
   }
+   // Add active class to the current button to keep it visible
+   buttonElement.classList.add("active");
 
   // Load theme preference
   const result = await chrome.storage.sync.get(["theme"]);
@@ -36,7 +41,7 @@ async function createResponsePopup(
   // Popup dimensions
   const popupHeight = 500;
   const popupWidth = 420; // Match showResponseMenu width
-  const gap = 12;
+  const gap = 10;
 
   // FORCE ABOVE - no conditions
   let top = buttonRect.top - popupHeight - gap;
@@ -47,7 +52,7 @@ async function createResponsePopup(
   }
 
   // Center horizontally with button
-  let left = buttonRect.left + buttonRect.width / 2 - popupWidth / 2;
+  let left = buttonRect.left;
 
   // Keep within viewport
   if (left < 10) left = 10;
@@ -130,6 +135,7 @@ async function createResponsePopup(
   const closeBtn = popup.querySelector(".cannerai-close-btn");
   closeBtn?.addEventListener("click", () => {
     popup.remove();
+    buttonElement.classList.remove("active");
   });
 
   try {
@@ -1064,13 +1070,13 @@ function positionPenButton(
     }
 
     // Smart positioning like Grammarly
-    let top = rect.bottom - 45; // Position near bottom-right like Grammarly
-    let right = window.innerWidth - rect.right + 8;
+    let top = rect.bottom - 25; // Position near bottom-right like Grammarly
+    let right = window.innerWidth - rect.right + 10;
 
     // For larger inputs (like compose areas), position in bottom-right
     if (rect.height > 60) {
-      top = rect.bottom - 50;
-      right = window.innerWidth - rect.right + 12;
+      top = rect.bottom - 30;
+      right = window.innerWidth - rect.right + 14;
     }
 
     // For inputs near the edge, adjust positioning

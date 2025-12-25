@@ -22,4 +22,8 @@
     - Changed to `position: fixed` to handle scrolling correctly.
     - Set default position to **Above** the button.
     - Added boundary checks (keeps popup on screen).
-- [
+
+
+# Task - 2
+ Fix the position and size of the quickresponse button. and it should remain open when the popup open 
+

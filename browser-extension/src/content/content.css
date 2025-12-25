@@ -3,8 +3,8 @@
 /* ===== GRAMMARLY-STYLE PEN BUTTON ===== */
 .social-helper-pen {
   position: fixed;
-  width: 40px;
-  height: 40px;
+  width: 30px; /* Increased from 20px */
+  height: 30px; /* Increased from 20px */
   background: rgba(255, 255, 255, 0.95);
   border: 2px solid rgba(0, 0, 0, 0.08);
   border-radius: 50%;
@@ -19,6 +19,7 @@
   transform: scale(0.8) translateY(10px);
   -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
+  padding: 0;
 }
 
 /* Inline ghost suggestion shown after caret (grey completion) */
@@ -52,25 +53,33 @@
   vertical-align: baseline;
 }
 
-/* Show button on input focus/hover */
-.social-helper-pen.visible {
+/* Show button on input focus/hover OR when active (popup open) */
+.social-helper-pen.visible,
+.social-helper-pen.active {
   opacity: 1;
   transform: scale(1) translateY(0);
 }
 
 /* Hover state - expand to show text */
 .social-helper-pen:hover,
-.social-helper-pen.pen-hover {
+.social-helper-pen.pen-hover,
+.social-helper-pen.active {
   background: rgba(255, 255, 255, 0.98);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.16);
+  animation-duration: 2s;
+  /* Only expand width on hover, not just active state, to keep it circular when menu is open but not hovered */
+}
+
+.social-helper-pen:hover,
+.social-helper-pen.pen-hover {
   width: auto;
   min-width: 140px;
   border-radius: 24px;
   padding: 8px 16px;
   border-color: rgba(29, 161, 242, 0.2);
   transform: scale(1.02) translateY(-2px);
+  transition-duration: 2s;
 }
-
 /* Platform-specific accent colors */
 body[class*="linkedin"] .social-helper-pen:hover,
 .social-helper-pen[data-platform="linkedin"]:hover {
@@ -84,11 +93,14 @@ body[class*="linkedin"] .social-helper-pen:hover,
 }
 
 .pen-icon {
-  font-size: 20px;
+  font-size: 15px; /* Increased from 10px */
   line-height: 1;
   color: #666;
   transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
   filter: grayscale(0.2);
+  display: flex; /* Ensure centering */
+  align-items: center;
+  justify-content: center;
 }
 
 .social-helper-pen:hover .pen-icon,
@@ -105,8 +117,8 @@ body[class*="linkedin"] .social-helper-pen:hover .pen-icon,
 
 .pen-tooltip {
   color: #666;
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 9px;
+  font-weight: 500;
   margin-left: 10px;
   opacity: 0;
   width: 0;
