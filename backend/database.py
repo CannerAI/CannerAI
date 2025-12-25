@@ -29,7 +29,9 @@ class DatabaseService:
         Returns:
             MongoDB database instance
         """
-        db_url = os.getenv("DATABASE_URL", "mongodb+srv://<username>:<password>@<cluster>.mongodb.net/?appName=Cluster0")
+        db_url = os.getenv("DATABASE_URL")
+        if not db_url:
+            raise ValueError("DATABASE_URL environment variable is required")
         db_name = os.getenv("MONGODB_DB_NAME", "cannerai_db")
         
         for attempt in range(max_retries + 1):
