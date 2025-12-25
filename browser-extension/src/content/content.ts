@@ -11,7 +11,10 @@ const CONFIG = {
 let lastFocusedInput: HTMLElement | null = null;
 
 // Function to create and show the popup
-async function createResponsePopup(buttonElement: HTMLElement, targetBox: HTMLElement) {
+async function createResponsePopup(
+  buttonElement: HTMLElement,
+  targetBox: HTMLElement
+) {
   // Remove any existing popup first
   const existingPopup = document.querySelector(".social-helper-menu");
   if (existingPopup) {
@@ -29,23 +32,23 @@ async function createResponsePopup(buttonElement: HTMLElement, targetBox: HTMLEl
 
   // Get button position RELATIVE TO VIEWPORT
   const buttonRect = buttonElement.getBoundingClientRect();
-  
+
   // Popup dimensions
-  const popupHeight = 500; 
+  const popupHeight = 500;
   const popupWidth = 420; // Match showResponseMenu width
   const gap = 12;
 
   // FORCE ABOVE - no conditions
   let top = buttonRect.top - popupHeight - gap;
-  
+
   // Only adjust if it would go completely off-screen
   if (top < 10) {
     top = 10; // Keep at least 10px from top
   }
 
   // Center horizontally with button
-  let left = buttonRect.left + (buttonRect.width / 2) - (popupWidth / 2);
-  
+  let left = buttonRect.left + buttonRect.width / 2 - popupWidth / 2;
+
   // Keep within viewport
   if (left < 10) left = 10;
   if (left + popupWidth > window.innerWidth - 10) {
@@ -59,7 +62,7 @@ async function createResponsePopup(buttonElement: HTMLElement, targetBox: HTMLEl
   popup.style.width = `${popupWidth}px`;
   popup.style.height = `${popupHeight}px`;
   popup.style.zIndex = "10000";
-  
+
   // Use the HTML structure from showResponseMenu
   popup.innerHTML = `
     <div class="sh-menu-header">
@@ -108,14 +111,17 @@ async function createResponsePopup(buttonElement: HTMLElement, targetBox: HTMLEl
   document.body.appendChild(popup);
 
   // Add theme toggle functionality
-  const themeToggle = popup.querySelector(".sh-theme-toggle") as HTMLButtonElement;
+  const themeToggle = popup.querySelector(
+    ".sh-theme-toggle"
+  ) as HTMLButtonElement;
   let currentTheme = isDarkMode ? "dark" : "light";
 
   themeToggle?.addEventListener("click", async () => {
     currentTheme = currentTheme === "dark" ? "light" : "dark";
     popup.setAttribute("data-theme", currentTheme);
     await chrome.storage.sync.set({ theme: currentTheme });
-    themeToggle.innerHTML = currentTheme === "dark"
+    themeToggle.innerHTML =
+      currentTheme === "dark"
         ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>`
         : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`;
   });
@@ -131,7 +137,9 @@ async function createResponsePopup(buttonElement: HTMLElement, targetBox: HTMLEl
     const subtitle = popup.querySelector(".sh-menu-subtitle") as HTMLElement;
 
     if (subtitle) {
-      subtitle.textContent = `${responses.length} ${responses.length === 1 ? "response" : "responses"}`;
+      subtitle.textContent = `${responses.length} ${
+        responses.length === 1 ? "response" : "responses"
+      }`;
     }
 
     // Search container
@@ -142,7 +150,9 @@ async function createResponsePopup(buttonElement: HTMLElement, targetBox: HTMLEl
         <circle cx="11" cy="11" r="8"/>
         <path d="m21 21-4.35-4.35"/>
       </svg>
-      <input class="sh-search" type="text" placeholder="Search by title, content, or tags..." ${responses.length === 0 ? 'disabled' : ''}>
+      <input class="sh-search" type="text" placeholder="Search by title, content, or tags..." ${
+        responses.length === 0 ? "disabled" : ""
+      }>
       <button class="sh-search-clear" style="display: none;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <path d="M18 6L6 18M6 6l12 12"/>
@@ -174,8 +184,14 @@ async function createResponsePopup(buttonElement: HTMLElement, targetBox: HTMLEl
         item.setAttribute("data-id", response.id);
 
         const tags = Array.isArray(response.tags) ? response.tags : [];
-        const tagElements = tags.slice(0, 2).map((tag: string) => `<span class="sh-tag">${tag}</span>`).join("");
-        const moreTags = tags.length > 2 ? `<span class="sh-tag-more">+${tags.length - 2}</span>` : "";
+        const tagElements = tags
+          .slice(0, 2)
+          .map((tag: string) => `<span class="sh-tag">${tag}</span>`)
+          .join("");
+        const moreTags =
+          tags.length > 2
+            ? `<span class="sh-tag-more">+${tags.length - 2}</span>`
+            : "";
 
         item.innerHTML = `
           <div class="sh-item-header">
@@ -184,13 +200,18 @@ async function createResponsePopup(buttonElement: HTMLElement, targetBox: HTMLEl
           </div>
           <p class="sh-item-preview">${response.content}</p>
           <div class="sh-item-actions">
-            <button class="sh-btn-action sh-btn-insert" data-content="${response.content.replace(/"/g, '&quot;')}">
+            <button class="sh-btn-action sh-btn-insert" data-content="${response.content.replace(
+              /"/g,
+              "&quot;"
+            )}">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14M5 12h14"/></svg> Insert
             </button>
             <button class="sh-btn-action sh-btn-edit" data-id="${response.id}">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z"/><path d="M14.06 4.94l3.75 3.75"/></svg> Edit
             </button>
-            <button class="sh-btn-action sh-btn-delete" data-id="${response.id}">
+            <button class="sh-btn-action sh-btn-delete" data-id="${
+              response.id
+            }">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> Delete
             </button>
           </div>
@@ -212,7 +233,9 @@ async function createResponsePopup(buttonElement: HTMLElement, targetBox: HTMLEl
 
     // Event Listeners
     const searchInput = popup.querySelector(".sh-search") as HTMLInputElement;
-    const searchClear = popup.querySelector(".sh-search-clear") as HTMLButtonElement;
+    const searchClear = popup.querySelector(
+      ".sh-search-clear"
+    ) as HTMLButtonElement;
 
     searchInput?.addEventListener("input", (e) => {
       const query = (e.target as HTMLInputElement).value.toLowerCase();
@@ -224,7 +247,10 @@ async function createResponsePopup(buttonElement: HTMLElement, targetBox: HTMLEl
         (item as HTMLElement).style.display = isVisible ? "block" : "none";
         if (isVisible) visibleCount++;
       });
-      if (subtitle) subtitle.textContent = `${visibleCount} ${visibleCount === 1 ? "response" : "responses"}${query ? " filtered" : ""}`;
+      if (subtitle)
+        subtitle.textContent = `${visibleCount} ${
+          visibleCount === 1 ? "response" : "responses"
+        }${query ? " filtered" : ""}`;
       if (searchClear) searchClear.style.display = query ? "flex" : "none";
     });
 
@@ -249,7 +275,10 @@ async function createResponsePopup(buttonElement: HTMLElement, targetBox: HTMLEl
         e.stopPropagation();
         const responseId = btn.getAttribute("data-id");
         if (responseId) {
-          chrome.runtime.sendMessage({ action: "openPopup", editId: responseId });
+          chrome.runtime.sendMessage({
+            action: "openPopup",
+            editId: responseId,
+          });
           popup.remove();
         }
       });
@@ -275,7 +304,6 @@ async function createResponsePopup(buttonElement: HTMLElement, targetBox: HTMLEl
       chrome.runtime.sendMessage({ action: "openPopup" });
       popup.remove();
     });
-
   } catch (error) {
     console.error("Error loading responses", error);
   }
@@ -290,18 +318,6 @@ async function createResponsePopup(buttonElement: HTMLElement, targetBox: HTMLEl
     });
   }, 100);
 }
-
-
-
-
-
-
-
-
-
-
-
-
 
 // this function track focused inputs
 function trackFocusedInputs() {
