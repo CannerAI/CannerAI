@@ -11,19 +11,28 @@ const CONFIG = {
 let lastFocusedInput: HTMLElement | null = null;
 
 // Function to create and show the popup
-function createResponsePopup(buttonElement: HTMLElement) {
-  const existingPopup = document.getElementById("cannerai-response-popup");
+async function createResponsePopup(buttonElement: HTMLElement, targetBox: HTMLElement) {
+  // Remove any existing popup first
+  const existingPopup = document.querySelector(".social-helper-menu");
   if (existingPopup) {
     existingPopup.remove();
   }
 
-  const popup = document.createElement("div");
-  popup.id = "cannerai-response-popup";
-  popup.className = "cannerai-popup-container";
+  // Load theme preference
+  const result = await chrome.storage.sync.get(["theme"]);
+  const isDarkMode = result.theme === "dark";
 
+  // Create popup container with social-helper-menu class to reuse styles
+  const popup = document.createElement("div");
+  popup.className = "social-helper-menu";
+  popup.setAttribute("data-theme", isDarkMode ? "dark" : "light");
+
+  // Get button position RELATIVE TO VIEWPORT
   const buttonRect = buttonElement.getBoundingClientRect();
-  const popupHeight = 500;
-  const popupWidth = 400;
+  
+  // Popup dimensions
+  const popupHeight = 500; 
+  const popupWidth = 420; // Match showResponseMenu width
   const gap = 12;
 
   // FORCE ABOVE - no conditions
@@ -43,178 +52,256 @@ function createResponsePopup(buttonElement: HTMLElement) {
     left = window.innerWidth - popupWidth - 10;
   }
 
+  // Apply FIXED positioning
   popup.style.position = "fixed";
   popup.style.top = `${top}px`;
   popup.style.left = `${left}px`;
   popup.style.width = `${popupWidth}px`;
   popup.style.height = `${popupHeight}px`;
   popup.style.zIndex = "10000";
-
+  
+  // Use the HTML structure from showResponseMenu
   popup.innerHTML = `
-    <div class="cannerai-popup-header">
-      <h3>Quick Responses</h3>
-      <button class="cannerai-close-btn" id="cannerai-close-popup">×</button>
-    </div>
-    <div class="cannerai-popup-content">
-      <div class="cannerai-search-box">
-        <input type="text" placeholder="Search responses..." id="cannerai-search-input">
-      </div>
-      <div class="cannerai-responses-list" id="cannerai-responses-list">
-        <div class="cannerai-loading">Loading responses...</div>
+    <div class="sh-menu-header">
+      <div class="sh-menu-header-content">
+        <div class="sh-menu-brand">
+          <div class="sh-menu-logo">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path d="M12 2L2 7L12 12L22 7L12 2Z" fill="currentColor" opacity="0.9"/>
+              <path d="M2 17L12 22L22 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+              <path d="M2 12L12 17L22 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+            </svg>
+          </div>
+          <div class="sh-menu-title">
+            <h3>Quick Responses</h3>
+            <p class="sh-menu-subtitle">Loading responses...</p>
+          </div>
+        </div>
+        <div class="sh-menu-actions">
+          <button class="sh-theme-toggle" aria-label="Toggle dark mode">
+            ${
+              isDarkMode
+                ? `
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="5"/>
+                <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+              </svg>
+            `
+                : `
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+              </svg>
+            `
+            }
+          </button>
+          <button class="cannerai-close-btn" style="margin-left: 8px; background: transparent; border: none; color: inherit; cursor: pointer;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
       </div>
     </div>
   `;
 
   document.body.appendChild(popup);
-  setTimeout(() => popup.classList.add("cannerai-popup-visible"), 10);
-  
-  loadResponses();
-  setupPopupEventListeners(popup);
-  setTimeout(() => document.addEventListener("click", handleOutsideClick), 100);
-}
 
-// Handle outside clicks to close popup
-function handleOutsideClick(event: MouseEvent) {
-  const popup = document.getElementById("cannerai-response-popup");
-  const target = event.target as HTMLElement;
+  // Add theme toggle functionality
+  const themeToggle = popup.querySelector(".sh-theme-toggle") as HTMLButtonElement;
+  let currentTheme = isDarkMode ? "dark" : "light";
 
-  if (
-    popup &&
-    !popup.contains(target) &&
-    !target.closest(".cannerai-quick-response-btn")
-  ) {
-    closePopup();
-  }
-}
+  themeToggle?.addEventListener("click", async () => {
+    currentTheme = currentTheme === "dark" ? "light" : "dark";
+    popup.setAttribute("data-theme", currentTheme);
+    await chrome.storage.sync.set({ theme: currentTheme });
+    themeToggle.innerHTML = currentTheme === "dark"
+        ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>`
+        : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`;
+  });
 
-// Close popup function
-function closePopup() {
-  const popup = document.getElementById("cannerai-response-popup");
-  if (popup) {
-    popup.classList.remove("cannerai-popup-visible");
-    setTimeout(() => popup.remove(), 300); // Wait for animation
-  }
-  document.removeEventListener("click", handleOutsideClick);
-}
-
-// Setup popup event listeners
-function setupPopupEventListeners(popup: HTMLElement) {
   // Close button
-  const closeBtn = popup.querySelector("#cannerai-close-popup");
-  closeBtn?.addEventListener("click", (e) => {
-    e.stopPropagation();
-    closePopup();
+  const closeBtn = popup.querySelector(".cannerai-close-btn");
+  closeBtn?.addEventListener("click", () => {
+    popup.remove();
   });
-
-  // Search functionality
-  const searchInput = popup.querySelector(
-    "#cannerai-search-input"
-  ) as HTMLInputElement;
-  searchInput?.addEventListener("input", (e) => {
-    const searchTerm = (e.target as HTMLInputElement).value;
-    filterResponses(searchTerm);
-  });
-
-  // Prevent popup from closing when clicking inside
-  popup.addEventListener("click", (e) => {
-    e.stopPropagation();
-  });
-}
-
-// Load responses from API
-async function loadResponses() {
-  const listContainer = document.getElementById("cannerai-responses-list");
-  if (!listContainer) return;
 
   try {
-    const response = await fetch("http://localhost:5000/api/responses");
-    const responses = await response.json();
+    const responses = await fetchResponses();
+    const subtitle = popup.querySelector(".sh-menu-subtitle") as HTMLElement;
 
-    if (responses.length === 0) {
-      listContainer.innerHTML =
-        '<div class="cannerai-no-responses">No saved responses yet.</div>';
-      return;
+    if (subtitle) {
+      subtitle.textContent = `${responses.length} ${responses.length === 1 ? "response" : "responses"}`;
     }
 
-    listContainer.innerHTML = responses
-      .map(
-        (resp: any) => `
+    // Search container
+    const searchContainer = document.createElement("div");
+    searchContainer.className = "sh-search-container";
+    searchContainer.innerHTML = `
+      <svg class="sh-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <circle cx="11" cy="11" r="8"/>
+        <path d="m21 21-4.35-4.35"/>
+      </svg>
+      <input class="sh-search" type="text" placeholder="Search by title, content, or tags..." ${responses.length === 0 ? 'disabled' : ''}>
+      <button class="sh-search-clear" style="display: none;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M18 6L6 18M6 6l12 12"/>
+        </svg>
+      </button>
+    `;
+    popup.appendChild(searchContainer);
 
-      <div class="cannerai-response-item" data-id="${resp._id}">
-        <div class="cannerai-response-title">${resp.title}</div>
-        <div class="cannerai-response-content">${resp.content.substring(
-          0,
-          100
-        )}...</div>
-        <div class="cannerai-response-tags">
-          ${resp.tags
-            .map((tag: string) => `<span class="cannerai-tag">${tag}</span>`)
-            .join("")}
+    const menuItems = document.createElement("div");
+    menuItems.className = "sh-menu-items";
+
+    if (responses.length === 0) {
+      menuItems.innerHTML = `
+        <div class="sh-empty-state">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="12" y1="18" x2="12" y2="12"/>
+            <line x1="9" y1="15" x2="15" y2="15"/>
+          </svg>
+          <h3>No saved responses</h3>
+          <p>Create your first response to get started</p>
         </div>
-      </div>
-    `
-      )
-      .join("");
+      `;
+    } else {
+      responses.forEach((response) => {
+        const item = document.createElement("div");
+        item.className = "sh-menu-item";
+        item.setAttribute("data-id", response.id);
 
-    // Add click handlers to response items
-    const items = listContainer.querySelectorAll(".cannerai-response-item");
-    items.forEach((item) => {
-      item.addEventListener("click", () => {
-        const content = responses.find(
-          (r: any) => r._id === item.getAttribute("data-id")
-        )?.content;
+        const tags = Array.isArray(response.tags) ? response.tags : [];
+        const tagElements = tags.slice(0, 2).map((tag: string) => `<span class="sh-tag">${tag}</span>`).join("");
+        const moreTags = tags.length > 2 ? `<span class="sh-tag-more">+${tags.length - 2}</span>` : "";
+
+        item.innerHTML = `
+          <div class="sh-item-header">
+            <h4 class="sh-item-title">${response.title}</h4>
+            <div class="sh-item-tags">${tagElements}${moreTags}</div>
+          </div>
+          <p class="sh-item-preview">${response.content}</p>
+          <div class="sh-item-actions">
+            <button class="sh-btn-action sh-btn-insert" data-content="${response.content.replace(/"/g, '&quot;')}">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14M5 12h14"/></svg> Insert
+            </button>
+            <button class="sh-btn-action sh-btn-edit" data-id="${response.id}">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z"/><path d="M14.06 4.94l3.75 3.75"/></svg> Edit
+            </button>
+            <button class="sh-btn-action sh-btn-delete" data-id="${response.id}">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> Delete
+            </button>
+          </div>
+        `;
+        menuItems.appendChild(item);
+      });
+    }
+    popup.appendChild(menuItems);
+
+    // Footer
+    const footer = document.createElement("div");
+    footer.className = "sh-menu-footer";
+    footer.innerHTML = `
+      <button class="sh-btn-create">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14M5 12h14"/></svg> New Response
+      </button>
+    `;
+    popup.appendChild(footer);
+
+    // Event Listeners
+    const searchInput = popup.querySelector(".sh-search") as HTMLInputElement;
+    const searchClear = popup.querySelector(".sh-search-clear") as HTMLButtonElement;
+
+    searchInput?.addEventListener("input", (e) => {
+      const query = (e.target as HTMLInputElement).value.toLowerCase();
+      const items = popup.querySelectorAll(".sh-menu-item");
+      let visibleCount = 0;
+      items.forEach((item) => {
+        const text = item.textContent?.toLowerCase() || "";
+        const isVisible = text.includes(query);
+        (item as HTMLElement).style.display = isVisible ? "block" : "none";
+        if (isVisible) visibleCount++;
+      });
+      if (subtitle) subtitle.textContent = `${visibleCount} ${visibleCount === 1 ? "response" : "responses"}${query ? " filtered" : ""}`;
+      if (searchClear) searchClear.style.display = query ? "flex" : "none";
+    });
+
+    searchClear?.addEventListener("click", () => {
+      searchInput.value = "";
+      searchInput.dispatchEvent(new Event("input"));
+    });
+
+    popup.querySelectorAll(".sh-btn-insert").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const content = btn.getAttribute("data-content");
         if (content) {
-          insertResponseIntoTextarea(content);
-          closePopup();
+          insertText(targetBox, content);
+          popup.remove();
         }
       });
     });
+
+    popup.querySelectorAll(".sh-btn-edit").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const responseId = btn.getAttribute("data-id");
+        if (responseId) {
+          chrome.runtime.sendMessage({ action: "openPopup", editId: responseId });
+          popup.remove();
+        }
+      });
+    });
+
+    popup.querySelectorAll(".sh-btn-delete").forEach((btn) => {
+      btn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        const responseId = btn.getAttribute("data-id");
+        if (responseId && confirm("Delete this response permanently?")) {
+          try {
+            await deleteResponse(responseId);
+            popup.remove();
+            createResponsePopup(buttonElement, targetBox); // Refresh
+          } catch (error) {
+            console.error("Failed to delete response:", error);
+          }
+        }
+      });
+    });
+
+    popup.querySelector(".sh-btn-create")?.addEventListener("click", () => {
+      chrome.runtime.sendMessage({ action: "openPopup" });
+      popup.remove();
+    });
+
   } catch (error) {
-    listContainer.innerHTML =
-      '<div class="cannerai-error">Failed to load responses</div>';
+    console.error("Error loading responses", error);
   }
+
+  // Close on outside click
+  setTimeout(() => {
+    document.addEventListener("click", function closeMenu(e) {
+      if (!popup.contains(e.target as Node) && e.target !== buttonElement) {
+        popup.remove();
+        document.removeEventListener("click", closeMenu);
+      }
+    });
+  }, 100);
 }
 
-// Filter responses based on search
-function filterResponses(searchTerm: string) {
-  const items = document.querySelectorAll(".cannerai-response-item");
-  items.forEach((item) => {
-    const title =
-      item.querySelector(".cannerai-response-title")?.textContent || "";
-    const content =
-      item.querySelector(".cannerai-response-content")?.textContent || "";
-    const tags = Array.from(item.querySelectorAll(".cannerai-tag"))
-      .map((tag) => tag.textContent)
-      .join(" ");
 
-    const matchesSearch =
-      title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      content.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      tags.toLowerCase().includes(searchTerm.toLowerCase());
 
-    (item as HTMLElement).style.display = matchesSearch ? "block" : "none";
-  });
-}
 
-// Insert response into the active textarea
-function insertResponseIntoTextarea(content: string) {
-  const activeElement = document.activeElement as HTMLTextAreaElement;
 
-  if (
-    activeElement &&
-    (activeElement.tagName === "TEXTAREA" ||
-      activeElement.getAttribute("contenteditable") === "true")
-  ) {
-    if (activeElement.tagName === "TEXTAREA") {
-      activeElement.value = content;
-    } else {
-      activeElement.textContent = content;
-    }
 
-    // Trigger input event so the platform knows text changed
-    activeElement.dispatchEvent(new Event("input", { bubbles: true }));
-  }
-}
+
+
+
+
+
+
 
 // this function track focused inputs
 function trackFocusedInputs() {
@@ -920,7 +1007,7 @@ function createPenButton(targetBox: HTMLElement): HTMLElement {
     e.preventDefault();
     e.stopPropagation();
     // showResponseMenu(targetBox, penContainer);
-    createResponsePopup(penContainer);
+    createResponsePopup(penContainer, targetBox);
   });
 
   // Enhanced hover effects with platform detection
@@ -2616,7 +2703,7 @@ function injectQuickResponseButton() {
     quickBtn.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
-      createResponsePopup(quickBtn);
+      createResponsePopup(quickBtn, messageBox as HTMLElement);
     });
 
     // Insert button near the message box
