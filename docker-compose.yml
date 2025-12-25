@@ -10,7 +10,7 @@ services:
       dockerfile: Dockerfile
     container_name: canner_backend
     environment:
-      - DATABASE_URL=mongodb+srv://souradip1000_db_user:UuMUS8w3ioNgGnaT@cluster0.ntltgfz.mongodb.net/?appName=Cluster0
+      - DATABASE_URL=mongodb+srv://<username>:<password>@<cluster>.mongodb.net/?appName=Cluster0
       - MONGODB_DB_NAME=cannerai_db
       - FLASK_ENV=development
       - FLASK_DEBUG=1
