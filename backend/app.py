@@ -25,7 +25,9 @@ def get_db_connection(max_retries: int = 5, base_delay: float = 1.0):
     Returns:
         MongoDB database instance
     """
-    db_url = os.getenv("DATABASE_URL", "mongodb+srv://souradip1000_db_user:UuMUS8w3ioNgGnaT@cluster0.ntltgfz.mongodb.net/?appName=Cluster0")
+    db_url = os.getenv("DATABASE_URL")
+    if not db_url:
+        raise ValueError("DATABASE_URL environment variable is required")
     db_name = os.getenv("MONGODB_DB_NAME", "cannerai_db")
 
     # MongoDB connection with retry logic
@@ -313,7 +315,7 @@ if __name__ == "__main__":
     )
 
     # Show which database we're using
-    db_url = os.getenv("DATABASE_URL", "mongodb+srv://souradip1000_db_user:UuMUS8w3ioNgGnaT@cluster0.ntltgfz.mongodb.net/?appName=Cluster0")
+    db_url = os.getenv("DATABASE_URL", "mongodb+srv://<username>:<password>@<cluster>.mongodb.net/?appName=Cluster0")
     db_name = os.getenv("MONGODB_DB_NAME", "cannerai_db")
     # Mask password in logs for security
     safe_url = db_url.split('@')[0].split(':')[0:2] if '@' in db_url else db_url
