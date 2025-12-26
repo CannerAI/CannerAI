@@ -3,8 +3,8 @@
 /* ===== GRAMMARLY-STYLE PEN BUTTON ===== */
 .social-helper-pen {
   position: fixed;
-  width: 30px; /* Increased from 20px */
-  height: 30px; /* Increased from 20px */
+  width: 30px;
+  height: 30px;
   background: rgba(255, 255, 255, 0.95);
   border: 2px solid rgba(0, 0, 0, 0.08);
   border-radius: 50%;
@@ -13,10 +13,10 @@
   justify-content: center;
   cursor: pointer;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
-  transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+  transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
   z-index: 10000;
   opacity: 0;
-  transform: scale(0.8) translateY(10px);
+  transform: scale(0.8);
   -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
   padding: 0;
@@ -57,7 +57,7 @@
 .social-helper-pen.visible,
 .social-helper-pen.active {
   opacity: 1;
-  transform: scale(1) translateY(0);
+  transform: scale(1);
 }
 
 /* Hover state - expand to show text */
@@ -72,13 +72,9 @@
 
 .social-helper-pen:hover,
 .social-helper-pen.pen-hover {
-  width: auto;
-  min-width: 140px;
-  border-radius: 24px;
-  padding: 8px 16px;
-  border-color: rgba(29, 161, 242, 0.2);
-  transform: scale(1.02) translateY(-2px);
-  transition-duration: 2s;
+  border-color: rgba(29, 161, 242, 0.3);
+  transform: scale(1.08) translateY(-2px);
+  transition-duration: 0.3s;
 }
 /* Platform-specific accent colors */
 body[class*="linkedin"] .social-helper-pen:hover,
@@ -103,36 +99,30 @@ body[class*="linkedin"] .social-helper-pen:hover,
   justify-content: center;
 }
 
+.pen-icon svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+  color: inherit;
+}
+
+/* Ensure the icon is visible */
+.social-helper-pen .pen-icon {
+  color: #4555e7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .social-helper-pen:hover .pen-icon,
 .social-helper-pen.pen-hover .pen-icon {
-  color: #1da1f2;
-  filter: grayscale(0);
-  transform: scale(1.1);
-}
-
-body[class*="linkedin"] .social-helper-pen:hover .pen-icon,
-.social-helper-pen[data-platform="linkedin"]:hover .pen-icon {
-  color: #0a66c2;
-}
-
-.pen-tooltip {
-  color: #666;
-  font-size: 9px;
-  font-weight: 500;
-  margin-left: 10px;
-  opacity: 0;
-  width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
-  letter-spacing: 0.2px;
+  color: #055db4; /* LinkedIn blue or your brand color */
 }
 
 .social-helper-pen:hover .pen-tooltip,
 .social-helper-pen.pen-hover .pen-tooltip {
   opacity: 1;
-  width: auto;
-  color: #333;
+  top: -40px;
 }
 
 .social-helper-pen:active {
@@ -140,40 +130,65 @@ body[class*="linkedin"] .social-helper-pen:hover .pen-icon,
   transition: all 0.1s ease;
 }
 
+.pen-tooltip {
+  position: absolute;
+  top: -35px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.85);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 6px 12px;
+  border-radius: 6px;
+  opacity: 0;
+  pointer-events: none;
+  white-space: nowrap;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  letter-spacing: 0.2px;
+  z-index: 10001;
+}
+
+.pen-tooltip::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: rgba(0, 0, 0, 0.85);
+}
+
 /* Grammarly-style entrance animation */
 @keyframes grammarlyEntrance {
   0% {
     opacity: 0;
-    transform: scale(0.6) translateY(20px) rotate(-10deg);
-  }
-  60% {
-    opacity: 0.8;
-    transform: scale(1.05) translateY(-5px) rotate(2deg);
+    transform: scale(0.8);
   }
   100% {
     opacity: 1;
-    transform: scale(1) translateY(0) rotate(0deg);
+    transform: scale(1);
   }
 }
 
 .social-helper-pen.visible {
-  animation: grammarlyEntrance 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+  animation: grammarlyEntrance 0.15s ease-out;
 }
 
 /* Smooth exit animation */
 @keyframes grammarlyExit {
   0% {
     opacity: 1;
-    transform: scale(1) translateY(0);
+    transform: scale(1);
   }
   100% {
     opacity: 0;
-    transform: scale(0.8) translateY(10px);
+    transform: scale(0.8);
   }
 }
 
 .social-helper-pen.hiding {
-  animation: grammarlyExit 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  animation: grammarlyExit 0.15s ease-out;
 }
 
 /* ===== NEW MENU STYLES - MATCHING POPUP DESIGN ===== */

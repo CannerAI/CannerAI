@@ -21,7 +21,7 @@ async function createResponsePopup(
     existingPopup.remove();
     document
       .querySelectorAll(
-        ".social-helper-pen.active, .cannerai-quick-response-btn.active"
+        ".social-helper-pen.active"
       )
       .forEach((btn) => {
         btn.classList.remove("active");
@@ -1028,7 +1028,9 @@ function createPenButton(targetBox: HTMLElement): HTMLElement {
 
   penContainer.innerHTML = `
   <div class="pen-tooltip">Quick Response</div>
-    <div class="pen-icon">✏️</div>
+    <div class="pen-icon">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M4.7134 7.12811L4.46682 7.69379C4.28637 8.10792 3.71357 8.10792 3.53312 7.69379L3.28656 7.12811C2.84706 6.11947 2.05545 5.31641 1.06767 4.87708L0.308047 4.53922C-0.102682 4.35653 -0.102682 3.75881 0.308047 3.57612L1.0252 3.25714C2.03838 2.80651 2.84417 1.97373 3.27612 0.930828L3.52932 0.319534C3.70578 -0.106511 4.29417 -0.106511 4.47063 0.319534L4.72382 0.930828C5.15577 1.97373 5.96158 2.80651 6.9748 3.25714L7.69188 3.57612C8.10271 3.75881 8.10271 4.35653 7.69188 4.53922L6.93228 4.87708C5.94451 5.31641 5.15288 6.11947 4.7134 7.12811ZM3.06361 21.6132C4.08854 15.422 6.31105 1.99658 21 1.99658C19.5042 4.99658 18.5 6.49658 17.5 7.49658L16.5 8.49658L18 9.49658C17 12.4966 14 15.9966 10 16.4966C7.33146 16.8301 5.66421 18.6635 4.99824 21.9966H3C3.02074 21.8722 3.0419 21.7443 3.06361 21.6132Z"></path></svg>
+    </div>
   `;
   penContainer.title = "Click for quick responses (Ctrl+Shift+L)";
 
@@ -1062,112 +1064,91 @@ function positionPenButton(
   inputElement: HTMLElement,
   penButton: HTMLElement
 ): void {
-  document.body.appendChild(penButton);
+  // New strategy: Position absolute inside the container
+  // Always use the parent element as the container.
+  // This prevents issues with:
+  // 1. input/textarea elements (cannot have children)
+  // 2. contenteditable elements managed by frameworks (React/Vue) which might remove "foreign" children
+  const container = inputElement.parentElement;
 
+  if (!container) {
+    return;
+  }
+
+  // Append button to container
+  if (container.isContentEditable) {
+    penButton.setAttribute("contenteditable", "false");
+  }
+
+  // Ensure button is in the container
+  if (penButton.parentElement !== container) {
+    container.appendChild(penButton);
+  }
+
+  // Style button
+  const buttonSize = 32;
+  const padding = 2;
+  const bottomOffset = -4; // Shift down to align with input text area
+
+  penButton.style.position = "absolute";
+  penButton.style.width = `${buttonSize}px`;
+  penButton.style.height = `${buttonSize}px`;
+  penButton.style.zIndex = "10000";
+  penButton.style.marginBottom = "0";
+  penButton.style.marginRight = "0";
+
+  // Calculate right offset based on input padding to avoid overlapping native icons
+  // If the input has large right padding (usually for icons), we position to the left of that padding
+  const inputStyle = window.getComputedStyle(inputElement);
+  const paddingRight = parseFloat(inputStyle.paddingRight) || 0;
+  const rightOffset = paddingRight > 20 ? paddingRight + 2 : padding;
+
+  // Anchor to bottom-right
+  penButton.style.top = "auto";
+  penButton.style.left = "auto";
+  penButton.style.bottom = `${bottomOffset}px`;
+  penButton.style.right = `${rightOffset}px`;
   let isVisible = false;
-  let showTimeout: number;
-  let hideTimeout: number;
-
-  const updatePosition = () => {
-    const rect = inputElement.getBoundingClientRect();
-
-    // Check if element is still visible
-    if (rect.width === 0 || rect.height === 0) {
-      hidePenButton();
-      return;
-    }
-
-    // Smart positioning like Grammarly
-    let top = rect.bottom - 25; // Position near bottom-right like Grammarly
-    let right = window.innerWidth - rect.right + 10;
-
-    // For larger inputs (like compose areas), position in bottom-right
-    if (rect.height > 60) {
-      top = rect.bottom - 30;
-      right = window.innerWidth - rect.right + 14;
-    }
-
-    // For inputs near the edge, adjust positioning
-    if (rect.right > window.innerWidth - 60) {
-      right = window.innerWidth - rect.left + 8;
-    }
-
-    // For inputs near the bottom, position above
-    if (rect.bottom > window.innerHeight - 60) {
-      top = rect.top - 50;
-    }
-
-    // Ensure button is always visible
-    top = Math.max(8, Math.min(top, window.innerHeight - 60));
-    right = Math.max(8, right);
-
-    penButton.style.position = "fixed";
-    penButton.style.top = `${top}px`;
-    penButton.style.right = `${right}px`;
-    penButton.style.zIndex = "10000";
-  };
 
   const showPenButton = () => {
-    clearTimeout(hideTimeout);
-    clearTimeout(showTimeout);
-
-    // Small delay like Grammarly
-    showTimeout = window.setTimeout(() => {
-      if (!isVisible) {
-        updatePosition();
-        penButton.classList.remove("hiding");
-        penButton.classList.add("visible");
-        isVisible = true;
-      }
-    }, 200);
+    penButton.classList.remove("hiding");
+    penButton.classList.add("visible");
+    isVisible = true;
   };
 
   const hidePenButton = () => {
-    clearTimeout(showTimeout);
-    clearTimeout(hideTimeout);
-
-    // Longer delay before hiding like Grammarly
-    hideTimeout = window.setTimeout(() => {
-      if (
-        isVisible &&
-        !penButton.matches(":hover") &&
-        !inputElement.matches(":focus")
-      ) {
-        penButton.classList.remove("visible");
-        penButton.classList.add("hiding");
-        isVisible = false;
-      }
-    }, 1500);
-  };
-
-  // Initial positioning (hidden)
-  updatePosition();
-
-  // Update position on scroll and resize
-  const updateHandler = () => {
-    if (isVisible) {
-      updatePosition();
+    if (
+      isVisible &&
+      !penButton.matches(":hover") &&
+      !inputElement.matches(":focus")
+    ) {
+      penButton.classList.remove("visible");
+      penButton.classList.add("hiding");
+      isVisible = false;
     }
   };
 
-  window.addEventListener("scroll", updateHandler, { passive: true });
-  window.addEventListener("resize", updateHandler, { passive: true });
+  // Initial state
+  if (document.activeElement === inputElement) {
+    showPenButton();
+  } else {
+    penButton.classList.add("hiding");
+  }
 
-  // Show/hide based on input interaction (like Grammarly)
+  // Event listeners
   inputElement.addEventListener("focus", showPenButton);
   inputElement.addEventListener("blur", hidePenButton);
   inputElement.addEventListener("input", showPenButton);
   inputElement.addEventListener("mouseenter", showPenButton);
   inputElement.addEventListener("mouseleave", hidePenButton);
 
-  // Keep button visible when hovering over it
   penButton.addEventListener("mouseenter", () => {
-    clearTimeout(hideTimeout);
+    isVisible = true;
+    showPenButton();
   });
-
   penButton.addEventListener("mouseleave", hidePenButton);
 
-  // Clean up listeners when element is removed
+  // Cleanup
   const observer = new MutationObserver((mutations) => {
     mutations.forEach((mutation) => {
       mutation.removedNodes.forEach((node) => {
@@ -1175,17 +1156,12 @@ function positionPenButton(
           node === inputElement ||
           (node as HTMLElement)?.contains?.(inputElement)
         ) {
-          clearTimeout(showTimeout);
-          clearTimeout(hideTimeout);
-          window.removeEventListener("scroll", updateHandler);
-          window.removeEventListener("resize", updateHandler);
           penButton.remove();
           observer.disconnect();
         }
       });
     });
   });
-
   observer.observe(document.body, { childList: true, subtree: true });
 }
 
@@ -2692,64 +2668,5 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   return true;
 });
 
-// Inject Quick Response button next to message boxes
-function injectQuickResponseButton() {
-  // LinkedIn DM selector
-  const linkedInMessageBoxes = document.querySelectorAll(
-    ".msg-form__contenteditable, .msg-form__textarea"
-  );
 
-  // Twitter/X DM selector
-  const twitterMessageBoxes = document.querySelectorAll(
-    '[data-testid="dmComposerTextInput"]'
-  );
 
-  const allMessageBoxes = [
-    ...Array.from(linkedInMessageBoxes),
-    ...Array.from(twitterMessageBoxes),
-  ];
-
-  allMessageBoxes.forEach((messageBox) => {
-    const parent = messageBox.parentElement;
-    if (!parent || parent.querySelector(".cannerai-quick-response-btn")) {
-      return; // Button already exists
-    }
-
-    // Create Quick Response button
-    const quickBtn = document.createElement("button");
-    quickBtn.className = "cannerai-quick-response-btn";
-    quickBtn.innerHTML = `
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/>
-      </svg>
-      <span>Quick Response</span>
-    `;
-    quickBtn.title = "Open Quick Responses";
-
-    // Position button appropriately
-    quickBtn.style.position = "relative";
-
-    // Click handler
-    quickBtn.addEventListener("click", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      createResponsePopup(quickBtn, messageBox as HTMLElement);
-    });
-
-    // Insert button near the message box
-    parent.appendChild(quickBtn);
-  });
-}
-
-// Initialize: Watch for new message boxes (SPA apps load dynamically)
-const quickResponseObserver = new MutationObserver(() => {
-  injectQuickResponseButton();
-});
-
-quickResponseObserver.observe(document.body, {
-  childList: true,
-  subtree: true,
-});
-
-// Initial injection
-injectQuickResponseButton();
