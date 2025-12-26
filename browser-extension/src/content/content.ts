@@ -10,15 +10,338 @@ const CONFIG = {
 // helps to track the last focused input
 let lastFocusedInput: HTMLElement | null = null;
 
+// Function to create and show the popup
+async function createResponsePopup(
+  buttonElement: HTMLElement,
+  targetBox: HTMLElement
+) {
+  // Remove any existing popup first
+  const existingPopup = document.querySelector(".social-helper-menu");
+  if (existingPopup) {
+    existingPopup.remove();
+    document
+      .querySelectorAll(
+        ".social-helper-pen.active, .cannerai-quick-response-btn.active"
+      )
+      .forEach((btn) => {
+        btn.classList.remove("active");
+      });
+  }
+  // Add active class to the current button to keep it visible
+  buttonElement.classList.add("active");
+
+  // Load theme preference
+  const result = await chrome.storage.sync.get(["theme"]);
+  const isDarkMode = result.theme === "dark";
+
+  // Create popup container with social-helper-menu class to reuse styles
+  const popup = document.createElement("div");
+  popup.className = "social-helper-menu";
+  popup.setAttribute("data-theme", isDarkMode ? "dark" : "light");
+
+  // Get button position RELATIVE TO VIEWPORT
+  const buttonRect = buttonElement.getBoundingClientRect();
+
+  // Popup dimensions
+  const popupHeight = 500;
+  const popupWidth = 420; // Match showResponseMenu width
+  const gap = 10;
+
+  // FORCE ABOVE - no conditions
+  let top = buttonRect.top - popupHeight - gap;
+
+  // Only adjust if it would go completely off-screen
+  if (top < 10) {
+    top = 10; // Keep at least 10px from top
+  }
+
+  // Center horizontally with button
+  let left = buttonRect.left;
+
+  // Keep within viewport
+  if (left < 10) left = 10;
+  if (left + popupWidth > window.innerWidth - 10) {
+    left = window.innerWidth - popupWidth - 10;
+  }
+
+  // Apply FIXED positioning
+  popup.style.position = "fixed";
+  popup.style.top = `${top}px`;
+  popup.style.left = `${left}px`;
+  popup.style.width = `${popupWidth}px`;
+  popup.style.height = `${popupHeight}px`;
+  popup.style.zIndex = "10000";
+
+  // Use the HTML structure from showResponseMenu
+  popup.innerHTML = `
+    <div class="sh-menu-header">
+      <div class="sh-menu-header-content">
+        <div class="sh-menu-brand">
+          <div class="sh-menu-logo">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path d="M12 2L2 7L12 12L22 7L12 2Z" fill="currentColor" opacity="0.9"/>
+              <path d="M2 17L12 22L22 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+              <path d="M2 12L12 17L22 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+            </svg>
+          </div>
+          <div class="sh-menu-title">
+            <h3>Quick Responses</h3>
+            <p class="sh-menu-subtitle">Loading responses...</p>
+          </div>
+        </div>
+        <div class="sh-menu-actions">
+          <button class="sh-theme-toggle" aria-label="Toggle dark mode">
+            ${
+              isDarkMode
+                ? `
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="5"/>
+                <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+              </svg>
+            `
+                : `
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+              </svg>
+            `
+            }
+          </button>
+          <button class="cannerai-close-btn" style="margin-left: 8px; background: transparent; border: none; color: inherit; cursor: pointer;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(popup);
+
+  // Add theme toggle functionality
+  const themeToggle = popup.querySelector(
+    ".sh-theme-toggle"
+  ) as HTMLButtonElement;
+  let currentTheme = isDarkMode ? "dark" : "light";
+
+  themeToggle?.addEventListener("click", async () => {
+    currentTheme = currentTheme === "dark" ? "light" : "dark";
+    popup.setAttribute("data-theme", currentTheme);
+    await chrome.storage.sync.set({ theme: currentTheme });
+    themeToggle.innerHTML =
+      currentTheme === "dark"
+        ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>`
+        : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`;
+  });
+
+  // Close button
+  const closeBtn = popup.querySelector(".cannerai-close-btn");
+  closeBtn?.addEventListener("click", () => {
+    popup.remove();
+    buttonElement.classList.remove("active");
+  });
+
+  try {
+    const responses = await fetchResponses();
+    const subtitle = popup.querySelector(".sh-menu-subtitle") as HTMLElement;
+
+    if (subtitle) {
+      subtitle.textContent = `${responses.length} ${
+        responses.length === 1 ? "response" : "responses"
+      }`;
+    }
+
+    // Search container
+    const searchContainer = document.createElement("div");
+    searchContainer.className = "sh-search-container";
+    searchContainer.innerHTML = `
+      <svg class="sh-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <circle cx="11" cy="11" r="8"/>
+        <path d="m21 21-4.35-4.35"/>
+      </svg>
+      <input class="sh-search" type="text" placeholder="Search by title, content, or tags..." ${
+        responses.length === 0 ? "disabled" : ""
+      }>
+      <button class="sh-search-clear" style="display: none;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M18 6L6 18M6 6l12 12"/>
+        </svg>
+      </button>
+    `;
+    popup.appendChild(searchContainer);
+
+    const menuItems = document.createElement("div");
+    menuItems.className = "sh-menu-items";
+
+    if (responses.length === 0) {
+      menuItems.innerHTML = `
+        <div class="sh-empty-state">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="12" y1="18" x2="12" y2="12"/>
+            <line x1="9" y1="15" x2="15" y2="15"/>
+          </svg>
+          <h3>No saved responses</h3>
+          <p>Create your first response to get started</p>
+        </div>
+      `;
+    } else {
+      responses.forEach((response) => {
+        const item = document.createElement("div");
+        item.className = "sh-menu-item";
+        item.setAttribute("data-id", response.id);
+
+        const tags = Array.isArray(response.tags) ? response.tags : [];
+        const tagElements = tags
+          .slice(0, 2)
+          .map((tag: string) => `<span class="sh-tag">${tag}</span>`)
+          .join("");
+        const moreTags =
+          tags.length > 2
+            ? `<span class="sh-tag-more">+${tags.length - 2}</span>`
+            : "";
+
+        item.innerHTML = `
+          <div class="sh-item-header">
+            <h4 class="sh-item-title">${response.title}</h4>
+            <div class="sh-item-tags">${tagElements}${moreTags}</div>
+          </div>
+          <p class="sh-item-preview">${response.content}</p>
+          <div class="sh-item-actions">
+            <button class="sh-btn-action sh-btn-insert" data-content="${response.content.replace(
+              /"/g,
+              "&quot;"
+            )}">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14M5 12h14"/></svg> Insert
+            </button>
+            <button class="sh-btn-action sh-btn-edit" data-id="${response.id}">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z"/><path d="M14.06 4.94l3.75 3.75"/></svg> Edit
+            </button>
+            <button class="sh-btn-action sh-btn-delete" data-id="${
+              response.id
+            }">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> Delete
+            </button>
+          </div>
+        `;
+        menuItems.appendChild(item);
+      });
+    }
+    popup.appendChild(menuItems);
+
+    // Footer
+    const footer = document.createElement("div");
+    footer.className = "sh-menu-footer";
+    footer.innerHTML = `
+      <button class="sh-btn-create">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14M5 12h14"/></svg> New Response
+      </button>
+    `;
+    popup.appendChild(footer);
+
+    // Event Listeners
+    const searchInput = popup.querySelector(".sh-search") as HTMLInputElement;
+    const searchClear = popup.querySelector(
+      ".sh-search-clear"
+    ) as HTMLButtonElement;
+
+    searchInput?.addEventListener("input", (e) => {
+      const query = (e.target as HTMLInputElement).value.toLowerCase();
+      const items = popup.querySelectorAll(".sh-menu-item");
+      let visibleCount = 0;
+      items.forEach((item) => {
+        const text = item.textContent?.toLowerCase() || "";
+        const isVisible = text.includes(query);
+        (item as HTMLElement).style.display = isVisible ? "block" : "none";
+        if (isVisible) visibleCount++;
+      });
+      if (subtitle)
+        subtitle.textContent = `${visibleCount} ${
+          visibleCount === 1 ? "response" : "responses"
+        }${query ? " filtered" : ""}`;
+      if (searchClear) searchClear.style.display = query ? "flex" : "none";
+    });
+
+    searchClear?.addEventListener("click", () => {
+      searchInput.value = "";
+      searchInput.dispatchEvent(new Event("input"));
+    });
+
+    popup.querySelectorAll(".sh-btn-insert").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const content = btn.getAttribute("data-content");
+        if (content) {
+          insertText(targetBox, content);
+          popup.remove();
+        }
+      });
+    });
+
+    popup.querySelectorAll(".sh-btn-edit").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const responseId = btn.getAttribute("data-id");
+        if (responseId) {
+          chrome.runtime.sendMessage({
+            action: "openPopup",
+            editId: responseId,
+          });
+          popup.remove();
+        }
+      });
+    });
+
+    popup.querySelectorAll(".sh-btn-delete").forEach((btn) => {
+      btn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        const responseId = btn.getAttribute("data-id");
+        if (responseId && confirm("Delete this response permanently?")) {
+          try {
+            await deleteResponse(responseId);
+            popup.remove();
+            createResponsePopup(buttonElement, targetBox); // Refresh
+          } catch (error) {
+            console.error("Failed to delete response:", error);
+          }
+        }
+      });
+    });
+
+    popup.querySelector(".sh-btn-create")?.addEventListener("click", () => {
+      chrome.runtime.sendMessage({ action: "openPopup" });
+      popup.remove();
+    });
+  } catch (error) {
+    console.error("Error loading responses", error);
+  }
+
+  // Close on outside click
+  setTimeout(() => {
+    document.addEventListener("click", function closeMenu(e) {
+      if (!popup.contains(e.target as Node) && e.target !== buttonElement) {
+        popup.remove();
+        document.removeEventListener("click", closeMenu);
+      }
+    });
+  }, 100);
+}
+
 // this function track focused inputs
 function trackFocusedInputs() {
-  document.addEventListener('focusin', (e) => {
-    const target = e.target as HTMLElement;
-    if (isValidInputElement(target)) {
-      lastFocusedInput = target;
-      console.log("Canner: Tracked focused input", target);
-    }
-  }, true);
+  document.addEventListener(
+    "focusin",
+    (e) => {
+      const target = e.target as HTMLElement;
+      if (isValidInputElement(target)) {
+        lastFocusedInput = target;
+        console.log("Canner: Tracked focused input", target);
+      }
+    },
+    true
+  );
 }
 
 // Track injected elements to avoid duplicates
@@ -47,24 +370,37 @@ class InlineSuggestionManager {
     this.inputHandler = this.handleInput.bind(this);
     this.keydownHandler = this.handleKeydown.bind(this);
     this.blurHandler = this.clearSuggestion.bind(this);
-    this.compositionStartHandler = () => { this.isComposing = true; };
-    this.compositionEndHandler = () => { this.isComposing = false; };
+    this.compositionStartHandler = () => {
+      this.isComposing = true;
+    };
+    this.compositionEndHandler = () => {
+      this.isComposing = false;
+    };
 
     // Attach event listeners
-    this.element.addEventListener('input', this.inputHandler);
-    this.element.addEventListener('keydown', this.keydownHandler);
-    this.element.addEventListener('blur', this.blurHandler);
-    this.element.addEventListener('compositionstart', this.compositionStartHandler);
-    this.element.addEventListener('compositionend', this.compositionEndHandler);
+    this.element.addEventListener("input", this.inputHandler);
+    this.element.addEventListener("keydown", this.keydownHandler);
+    this.element.addEventListener("blur", this.blurHandler);
+    this.element.addEventListener(
+      "compositionstart",
+      this.compositionStartHandler
+    );
+    this.element.addEventListener("compositionend", this.compositionEndHandler);
   }
 
   destroy() {
     this.clearSuggestion();
-    this.element.removeEventListener('input', this.inputHandler);
-    this.element.removeEventListener('keydown', this.keydownHandler);
-    this.element.removeEventListener('blur', this.blurHandler);
-    this.element.removeEventListener('compositionstart', this.compositionStartHandler);
-    this.element.removeEventListener('compositionend', this.compositionEndHandler);
+    this.element.removeEventListener("input", this.inputHandler);
+    this.element.removeEventListener("keydown", this.keydownHandler);
+    this.element.removeEventListener("blur", this.blurHandler);
+    this.element.removeEventListener(
+      "compositionstart",
+      this.compositionStartHandler
+    );
+    this.element.removeEventListener(
+      "compositionend",
+      this.compositionEndHandler
+    );
   }
 
   private async handleInput(e: Event) {
@@ -88,8 +424,8 @@ class InlineSuggestionManager {
     }
 
     // Additional check for empty contenteditable elements
-    if (this.element.getAttribute('contenteditable') === 'true') {
-      const textContent = this.element.textContent?.trim() || '';
+    if (this.element.getAttribute("contenteditable") === "true") {
+      const textContent = this.element.textContent?.trim() || "";
       if (textContent.length === 0) {
         this.clearSuggestion();
         return;
@@ -104,7 +440,7 @@ class InlineSuggestionManager {
       }
 
       // Find suggestions that start with the current text
-      const matches = suggestions.filter(s => {
+      const matches = suggestions.filter((s) => {
         const content = (s.content || s.title || "").toLowerCase();
         return content.startsWith(currentText.toLowerCase());
       });
@@ -118,21 +454,21 @@ class InlineSuggestionManager {
       const suggestion = matches[0];
       this.showSuggestion(suggestion, currentText);
     } catch (error) {
-      console.error('Error fetching suggestions:', error);
+      console.error("Error fetching suggestions:", error);
       this.clearSuggestion();
     }
   }
 
   private handleKeydown(e: KeyboardEvent) {
-    if (e.key === 'Tab' && this.currentSuggestion) {
+    if (e.key === "Tab" && this.currentSuggestion) {
       e.preventDefault();
       e.stopPropagation();
       this.acceptSuggestion();
-    } else if (e.key === 'Escape' && this.currentSuggestion) {
+    } else if (e.key === "Escape" && this.currentSuggestion) {
       e.preventDefault();
       e.stopPropagation();
       this.clearSuggestion();
-    } else if (e.key === 'Backspace' || e.key === 'Delete') {
+    } else if (e.key === "Backspace" || e.key === "Delete") {
       // Clear suggestion on delete keys (fixes Twitter backspace issue)
       setTimeout(() => {
         const currentText = this.getCurrentText();
@@ -144,37 +480,44 @@ class InlineSuggestionManager {
   }
 
   private getCurrentText(): string {
-    if (this.element.getAttribute('contenteditable') === 'true') {
+    if (this.element.getAttribute("contenteditable") === "true") {
       const selection = window.getSelection();
-      if (!selection || selection.rangeCount === 0) return '';
+      if (!selection || selection.rangeCount === 0) return "";
 
       const range = selection.getRangeAt(0);
       const tempRange = range.cloneRange();
       tempRange.selectNodeContents(this.element);
       tempRange.setEnd(range.endContainer, range.endOffset);
 
-      const text = tempRange.cloneContents().textContent || '';
+      const text = tempRange.cloneContents().textContent || "";
       // Get the last word
       const words = text.trim().split(/\s+/);
-      return words[words.length - 1] || '';
-    } else if (this.element.tagName === 'TEXTAREA' || this.element.tagName === 'INPUT') {
+      return words[words.length - 1] || "";
+    } else if (
+      this.element.tagName === "TEXTAREA" ||
+      this.element.tagName === "INPUT"
+    ) {
       const input = this.element as HTMLInputElement | HTMLTextAreaElement;
       const cursorPos = input.selectionStart || 0;
       const text = input.value.substring(0, cursorPos);
       const words = text.trim().split(/\s+/);
-      return words[words.length - 1] || '';
+      return words[words.length - 1] || "";
     }
-    return '';
+    return "";
   }
 
   private async fetchSuggestions(prefix: string): Promise<any[]> {
     return new Promise((resolve) => {
-      chrome.storage.local.get(['responses'], (result) => {
+      chrome.storage.local.get(["responses"], (result) => {
         const responses = result.responses || [];
         const prefixLower = prefix.toLowerCase();
 
         const matches = responses.filter((response: any) => {
-          const content = (response.content || response.title || "").toLowerCase();
+          const content = (
+            response.content ||
+            response.title ||
+            ""
+          ).toLowerCase();
           return content.startsWith(prefixLower);
         });
 
@@ -185,11 +528,13 @@ class InlineSuggestionManager {
 
   private showSuggestion(suggestion: any, currentText: string) {
     this.currentSuggestion = suggestion;
-    const fullText = suggestion.content || suggestion.title || '';
+    const fullText = suggestion.content || suggestion.title || "";
 
     // Detect platform for different display strategies
     const isLinkedIn = window.location.hostname.includes("linkedin");
-    const isTwitter = window.location.hostname.includes("twitter") || window.location.hostname.includes("x.com");
+    const isTwitter =
+      window.location.hostname.includes("twitter") ||
+      window.location.hostname.includes("x.com");
 
     // Platform-specific suggestion display logic
     if (isTwitter) {
@@ -205,21 +550,26 @@ class InlineSuggestionManager {
         displayText = displayText.substring(0, maxLength - 3) + "...";
       }
 
-      this.createGhostElement(displayText, currentText, fullText, 'twitter');
+      this.createGhostElement(displayText, currentText, fullText, "twitter");
     } else {
       // LinkedIn and others: show the full text in gray behind
-      this.createGhostElement(fullText, currentText, fullText, 'linkedin');
+      this.createGhostElement(fullText, currentText, fullText, "linkedin");
     }
   }
 
-  private createGhostElement(text: string, _currentText: string, _fullText: string, platform: 'linkedin' | 'twitter') {
+  private createGhostElement(
+    text: string,
+    _currentText: string,
+    _fullText: string,
+    platform: "linkedin" | "twitter"
+  ) {
     this.clearGhostElement();
 
-    if (this.element.getAttribute('contenteditable') === 'true') {
-      const overlay = document.createElement('div');
-      overlay.className = 'canner-ghost-suggestion';
+    if (this.element.getAttribute("contenteditable") === "true") {
+      const overlay = document.createElement("div");
+      overlay.className = "canner-ghost-suggestion";
 
-      if (platform === 'linkedin') {
+      if (platform === "linkedin") {
         // LinkedIn: show the full suggestion text with proper styling
         overlay.textContent = _fullText;
         overlay.style.cssText = `
@@ -351,13 +701,17 @@ class InlineSuggestionManager {
     // Suppress further input handling temporarily
     this.suppressedUntil = Date.now() + 500;
 
-    const fullText = this.currentSuggestion.content || this.currentSuggestion.title || '';
+    const fullText =
+      this.currentSuggestion.content || this.currentSuggestion.title || "";
     const currentText = this.getCurrentText();
 
     // Replace current text with full suggestion
-    if (this.element.getAttribute('contenteditable') === 'true') {
+    if (this.element.getAttribute("contenteditable") === "true") {
       this.replaceInContentEditable(fullText, currentText);
-    } else if (this.element.tagName === 'TEXTAREA' || this.element.tagName === 'INPUT') {
+    } else if (
+      this.element.tagName === "TEXTAREA" ||
+      this.element.tagName === "INPUT"
+    ) {
       this.replaceInInput(fullText, currentText);
     }
 
@@ -375,8 +729,8 @@ class InlineSuggestionManager {
     tempRange.selectNodeContents(this.element);
     tempRange.setEnd(range.endContainer, range.endOffset);
 
-    const currentContent = tempRange.cloneContents().textContent || '';
-    const lastSpaceIndex = currentContent.lastIndexOf(' ');
+    const currentContent = tempRange.cloneContents().textContent || "";
+    const lastSpaceIndex = currentContent.lastIndexOf(" ");
     const startIndex = lastSpaceIndex >= 0 ? lastSpaceIndex + 1 : 0;
 
     // Create range to replace the current word
@@ -384,7 +738,10 @@ class InlineSuggestionManager {
     replaceRange.setStart(this.element, 0);
 
     // Find the text node and offset for the start
-    const walker = document.createTreeWalker(this.element, NodeFilter.SHOW_TEXT);
+    const walker = document.createTreeWalker(
+      this.element,
+      NodeFilter.SHOW_TEXT
+    );
     let currentOffset = 0;
     let startNode = null;
     let startOffset = 0;
@@ -417,8 +774,8 @@ class InlineSuggestionManager {
       selection.addRange(newRange);
 
       // Trigger events
-      this.element.dispatchEvent(new InputEvent('input', { bubbles: true }));
-      this.element.dispatchEvent(new Event('change', { bubbles: true }));
+      this.element.dispatchEvent(new InputEvent("input", { bubbles: true }));
+      this.element.dispatchEvent(new Event("change", { bubbles: true }));
     }
   }
 
@@ -429,12 +786,17 @@ class InlineSuggestionManager {
 
     // Find the start of the current word
     let startPos = cursorPos - 1;
-    while (startPos >= 0 && value[startPos] !== ' ' && value[startPos] !== '\n') {
+    while (
+      startPos >= 0 &&
+      value[startPos] !== " " &&
+      value[startPos] !== "\n"
+    ) {
       startPos--;
     }
     startPos++;
 
-    const newValue = value.substring(0, startPos) + fullText + value.substring(cursorPos);
+    const newValue =
+      value.substring(0, startPos) + fullText + value.substring(cursorPos);
     input.value = newValue;
 
     // Set cursor position
@@ -442,8 +804,8 @@ class InlineSuggestionManager {
     input.setSelectionRange(newCursorPos, newCursorPos);
 
     // Trigger events
-    input.dispatchEvent(new Event('input', { bubbles: true }));
-    input.dispatchEvent(new Event('change', { bubbles: true }));
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new Event("change", { bubbles: true }));
   }
 }
 
@@ -495,6 +857,10 @@ function addMessageHelpers() {
   console.log("Social Helper: Adding message helpers...");
 
   const selectors = [
+    'div.ql-editor[contenteditable="true"]',
+    'div[role="textbox"][contenteditable="true"]',
+    'div[aria-placeholder*="comment" i]',
+    'div[data-placeholder*="comment" i]',
     '[contenteditable="true"]',
     'textarea[placeholder*="comment" i]',
     'textarea[placeholder*="message" i]',
@@ -529,7 +895,7 @@ function addMessageHelpers() {
       rect.height
     );
 
-    if (rect.width < 100 || rect.height < 20) {
+    if (rect.width < 40 || rect.height < 16) {
       console.log(`Social Helper: Skipping element ${index + 1} - too small`);
       return;
     }
@@ -570,8 +936,11 @@ function addMessageHelpers() {
       try {
         const resolvedEditable = ((): HTMLElement => {
           const el = box as HTMLElement;
-          if (el.getAttribute && el.getAttribute("contenteditable") === "true") return el;
-          const inner = el.querySelector?.('[contenteditable="true"], textarea, input[type="text"]') as HTMLElement | null;
+          if (el.getAttribute && el.getAttribute("contenteditable") === "true")
+            return el;
+          const inner = el.querySelector?.(
+            '[contenteditable="true"], textarea, input[type="text"]'
+          ) as HTMLElement | null;
           return inner || el;
         })();
 
@@ -580,7 +949,9 @@ function addMessageHelpers() {
         }
 
         if (!suggestionManagers[resolvedEditable.id]) {
-          suggestionManagers[resolvedEditable.id] = new InlineSuggestionManager(resolvedEditable as HTMLElement);
+          suggestionManagers[resolvedEditable.id] = new InlineSuggestionManager(
+            resolvedEditable as HTMLElement
+          );
         }
       } catch (err) {
         console.error("Canner: Failed to attach SuggestionManager:", err);
@@ -600,8 +971,11 @@ function addMessageHelpers() {
     // actual editable so insertion/replacement logic runs against the real editor.
     const resolvedEditable = ((): HTMLElement => {
       const el = box as HTMLElement;
-      if (el.getAttribute && el.getAttribute("contenteditable") === "true") return el;
-      const inner = el.querySelector?.('[contenteditable="true"], textarea, input[type="text"]') as HTMLElement | null;
+      if (el.getAttribute && el.getAttribute("contenteditable") === "true")
+        return el;
+      const inner = el.querySelector?.(
+        '[contenteditable="true"], textarea, input[type="text"]'
+      ) as HTMLElement | null;
       return inner || el;
     })();
 
@@ -613,7 +987,9 @@ function addMessageHelpers() {
     // Attach InlineSuggestionManager for inline completions to the resolved editable
     try {
       if (!suggestionManagers[resolvedEditable.id]) {
-        suggestionManagers[resolvedEditable.id] = new InlineSuggestionManager(resolvedEditable as HTMLElement);
+        suggestionManagers[resolvedEditable.id] = new InlineSuggestionManager(
+          resolvedEditable as HTMLElement
+        );
       }
     } catch (err) {
       console.error("Canner: Failed to create InlineSuggestionManager:", err);
@@ -621,7 +997,8 @@ function addMessageHelpers() {
 
     injectedElements.add(box.id);
     console.log(
-      `Social Helper: Pen button created and positioned for element ${index + 1
+      `Social Helper: Pen button created and positioned for element ${
+        index + 1
       }`
     );
   });
@@ -650,8 +1027,8 @@ function createPenButton(targetBox: HTMLElement): HTMLElement {
   }
 
   penContainer.innerHTML = `
+  <div class="pen-tooltip">Quick Response</div>
     <div class="pen-icon">✏️</div>
-    <div class="pen-tooltip">Quick Response</div>
   `;
   penContainer.title = "Click for quick responses (Ctrl+Shift+L)";
 
@@ -659,7 +1036,8 @@ function createPenButton(targetBox: HTMLElement): HTMLElement {
   penContainer.addEventListener("click", (e) => {
     e.preventDefault();
     e.stopPropagation();
-    showResponseMenu(targetBox, penContainer);
+    // showResponseMenu(targetBox, penContainer);
+    createResponsePopup(penContainer, targetBox);
   });
 
   // Enhanced hover effects with platform detection
@@ -700,13 +1078,13 @@ function positionPenButton(
     }
 
     // Smart positioning like Grammarly
-    let top = rect.bottom - 45; // Position near bottom-right like Grammarly
-    let right = window.innerWidth - rect.right + 8;
+    let top = rect.bottom - 25; // Position near bottom-right like Grammarly
+    let right = window.innerWidth - rect.right + 10;
 
     // For larger inputs (like compose areas), position in bottom-right
     if (rect.height > 60) {
-      top = rect.bottom - 50;
-      right = window.innerWidth - rect.right + 12;
+      top = rect.bottom - 30;
+      right = window.innerWidth - rect.right + 14;
     }
 
     // For inputs near the edge, adjust positioning
@@ -862,16 +1240,20 @@ async function showResponseMenu(targetBox: HTMLElement, button: HTMLElement) {
         </div>
         <div class="sh-menu-actions">
           <button class="sh-theme-toggle" aria-label="Toggle dark mode">
-            ${isDarkMode ? `
+            ${
+              isDarkMode
+                ? `
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <circle cx="12" cy="12" r="5"/>
                 <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
               </svg>
-            ` : `
+            `
+                : `
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
               </svg>
-            `}
+            `
+            }
           </button>
         </div>
       </div>
@@ -905,23 +1287,28 @@ async function showResponseMenu(targetBox: HTMLElement, button: HTMLElement) {
   document.body.appendChild(menu);
 
   // Add theme toggle functionality
-  const themeToggle = menu.querySelector(".sh-theme-toggle") as HTMLButtonElement;
+  const themeToggle = menu.querySelector(
+    ".sh-theme-toggle"
+  ) as HTMLButtonElement;
   let currentTheme = isDarkMode ? "dark" : "light";
-  
+
   themeToggle?.addEventListener("click", async () => {
     currentTheme = currentTheme === "dark" ? "light" : "dark";
     menu.setAttribute("data-theme", currentTheme);
-    
+
     // Save theme preference to storage
     await chrome.storage.sync.set({ theme: currentTheme });
-    
+
     // Update theme toggle icon
-    themeToggle.innerHTML = currentTheme === "dark" ? `
+    themeToggle.innerHTML =
+      currentTheme === "dark"
+        ? `
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <circle cx="12" cy="12" r="5"/>
         <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
       </svg>
-    ` : `
+    `
+        : `
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
       </svg>
@@ -932,10 +1319,12 @@ async function showResponseMenu(targetBox: HTMLElement, button: HTMLElement) {
     // Fetch responses from backend or local storage
     const responses = await fetchResponses();
     const subtitle = menu.querySelector(".sh-menu-subtitle") as HTMLElement;
-    
+
     // Update subtitle with response count
     if (subtitle) {
-      subtitle.textContent = `${responses.length} ${responses.length === 1 ? 'response' : 'responses'}`;
+      subtitle.textContent = `${responses.length} ${
+        responses.length === 1 ? "response" : "responses"
+      }`;
     }
 
     if (responses.length === 0) {
@@ -987,19 +1376,23 @@ async function showResponseMenu(targetBox: HTMLElement, button: HTMLElement) {
       // Add menu items container
       const menuItems = document.createElement("div");
       menuItems.className = "sh-menu-items";
-      
+
       responses.forEach((response) => {
         const item = document.createElement("div");
         item.className = "sh-menu-item";
         item.setAttribute("data-id", response.id);
-        
+
         const tags = Array.isArray(response.tags) ? response.tags : [];
-        const tagElements = tags.slice(0, 2).map((tag: string) => 
-          `<span class="sh-tag">${tag}</span>`
-        ).join('');
-        
-        const moreTags = tags.length > 2 ? `<span class="sh-tag-more">+${tags.length - 2}</span>` : '';
-        
+        const tagElements = tags
+          .slice(0, 2)
+          .map((tag: string) => `<span class="sh-tag">${tag}</span>`)
+          .join("");
+
+        const moreTags =
+          tags.length > 2
+            ? `<span class="sh-tag-more">+${tags.length - 2}</span>`
+            : "";
+
         item.innerHTML = `
           <div class="sh-item-header">
             <h4 class="sh-item-title">${response.title}</h4>
@@ -1010,7 +1403,10 @@ async function showResponseMenu(targetBox: HTMLElement, button: HTMLElement) {
           </div>
           <p class="sh-item-preview">${response.content}</p>
           <div class="sh-item-actions">
-            <button class="sh-btn-action sh-btn-insert" data-content="${response.content.replace(/"/g, '"')}">
+            <button class="sh-btn-action sh-btn-insert" data-content="${response.content.replace(
+              /"/g,
+              '"'
+            )}">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M12 5v14M5 12h14"/>
               </svg>
@@ -1023,7 +1419,9 @@ async function showResponseMenu(targetBox: HTMLElement, button: HTMLElement) {
               </svg>
               Edit
             </button>
-            <button class="sh-btn-action sh-btn-delete" data-id="${response.id}">
+            <button class="sh-btn-action sh-btn-delete" data-id="${
+              response.id
+            }">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <polyline points="3 6 5 6 21 6"/>
                 <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
@@ -1032,10 +1430,10 @@ async function showResponseMenu(targetBox: HTMLElement, button: HTMLElement) {
             </button>
           </div>
         `;
-        
+
         menuItems.appendChild(item);
       });
-      
+
       menu.appendChild(menuItems);
 
       // Add footer
@@ -1053,25 +1451,29 @@ async function showResponseMenu(targetBox: HTMLElement, button: HTMLElement) {
 
       // Add search functionality
       const searchInput = menu.querySelector(".sh-search") as HTMLInputElement;
-      const searchClear = menu.querySelector(".sh-search-clear") as HTMLButtonElement;
-      
+      const searchClear = menu.querySelector(
+        ".sh-search-clear"
+      ) as HTMLButtonElement;
+
       searchInput?.addEventListener("input", (e) => {
         const query = (e.target as HTMLInputElement).value.toLowerCase();
         const items = menu.querySelectorAll(".sh-menu-item");
         let visibleCount = 0;
-        
+
         items.forEach((item) => {
           const text = item.textContent?.toLowerCase() || "";
           const isVisible = text.includes(query);
           (item as HTMLElement).style.display = isVisible ? "block" : "none";
           if (isVisible) visibleCount++;
         });
-        
+
         // Update subtitle with filtered count
         if (subtitle) {
-          subtitle.textContent = `${visibleCount} ${visibleCount === 1 ? 'response' : 'responses'}${query ? ' filtered' : ''}`;
+          subtitle.textContent = `${visibleCount} ${
+            visibleCount === 1 ? "response" : "responses"
+          }${query ? " filtered" : ""}`;
         }
-        
+
         // Show/hide clear button
         if (searchClear) {
           searchClear.style.display = query ? "flex" : "none";
@@ -1080,7 +1482,7 @@ async function showResponseMenu(targetBox: HTMLElement, button: HTMLElement) {
 
       searchClear?.addEventListener("click", () => {
         searchInput.value = "";
-        searchInput.dispatchEvent(new Event('input'));
+        searchInput.dispatchEvent(new Event("input"));
       });
 
       // Add click handlers for insert buttons
@@ -1101,7 +1503,10 @@ async function showResponseMenu(targetBox: HTMLElement, button: HTMLElement) {
           e.stopPropagation();
           const responseId = btn.getAttribute("data-id");
           if (responseId) {
-            chrome.runtime.sendMessage({ action: "openPopup", editId: responseId });
+            chrome.runtime.sendMessage({
+              action: "openPopup",
+              editId: responseId,
+            });
             menu.remove();
           }
         });
@@ -1168,11 +1573,18 @@ async function showResponseMenu(targetBox: HTMLElement, button: HTMLElement) {
 }
 
 // Show create modal for new response
-function showCreateModal(targetBox: HTMLElement, button: HTMLElement, menu: HTMLElement) {
+function showCreateModal(
+  targetBox: HTMLElement,
+  button: HTMLElement,
+  menu: HTMLElement
+) {
   // Create modal overlay
   const modalOverlay = document.createElement("div");
   modalOverlay.className = "sh-modal-overlay";
-  modalOverlay.setAttribute("data-theme", menu.getAttribute("data-theme") || "light");
+  modalOverlay.setAttribute(
+    "data-theme",
+    menu.getAttribute("data-theme") || "light"
+  );
 
   modalOverlay.innerHTML = `
     <div class="sh-modal">
@@ -1215,13 +1627,19 @@ function showCreateModal(targetBox: HTMLElement, button: HTMLElement, menu: HTML
 
   // Focus on title input
   setTimeout(() => {
-    const titleInput = document.getElementById("sh-create-title") as HTMLInputElement;
+    const titleInput = document.getElementById(
+      "sh-create-title"
+    ) as HTMLInputElement;
     titleInput?.focus();
   }, 100);
 
   // Handle close
-  const closeBtn = modalOverlay.querySelector(".sh-modal-close") as HTMLButtonElement;
-  const cancelBtn = modalOverlay.querySelector("#sh-cancel-create") as HTMLButtonElement;
+  const closeBtn = modalOverlay.querySelector(
+    ".sh-modal-close"
+  ) as HTMLButtonElement;
+  const cancelBtn = modalOverlay.querySelector(
+    "#sh-cancel-create"
+  ) as HTMLButtonElement;
 
   const closeModal = () => {
     modalOverlay.remove();
@@ -1238,11 +1656,19 @@ function showCreateModal(targetBox: HTMLElement, button: HTMLElement, menu: HTML
   });
 
   // Handle save
-  const saveBtn = modalOverlay.querySelector("#sh-save-create") as HTMLButtonElement;
+  const saveBtn = modalOverlay.querySelector(
+    "#sh-save-create"
+  ) as HTMLButtonElement;
   saveBtn.addEventListener("click", async () => {
-    const title = (document.getElementById("sh-create-title") as HTMLInputElement).value.trim();
-    const content = (document.getElementById("sh-create-content") as HTMLTextAreaElement).value.trim();
-    const tags = (document.getElementById("sh-create-tags") as HTMLInputElement).value.trim();
+    const title = (
+      document.getElementById("sh-create-title") as HTMLInputElement
+    ).value.trim();
+    const content = (
+      document.getElementById("sh-create-content") as HTMLTextAreaElement
+    ).value.trim();
+    const tags = (
+      document.getElementById("sh-create-tags") as HTMLInputElement
+    ).value.trim();
 
     if (!title || !content) {
       alert("Please fill in title and content");
@@ -1263,21 +1689,23 @@ function showCreateModal(targetBox: HTMLElement, button: HTMLElement, menu: HTML
       await createResponse({
         title,
         content,
-        tags: tags.split(",").map(t => t.trim()).filter(Boolean)
+        tags: tags
+          .split(",")
+          .map((t) => t.trim())
+          .filter(Boolean),
       });
 
       // Show success message
       showToast("✅ Response created successfully!");
-      
+
       // Close modal and menu
       closeModal();
       menu.remove();
-      
+
       // Refresh menu to show new data
       setTimeout(() => {
         showResponseMenu(targetBox, button);
       }, 300);
-
     } catch (error) {
       console.error("Failed to create response:", error);
       alert("Failed to create response. Please try again.");
@@ -1303,12 +1731,14 @@ async function createResponse(data: any): Promise<void> {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     });
-    
+
     if (response.ok) {
       return;
     }
   } catch (error) {
-    console.log("Canner: Backend not available for create, using local storage");
+    console.log(
+      "Canner: Backend not available for create, using local storage"
+    );
   }
 
   // Fallback to Chrome storage
@@ -1318,11 +1748,11 @@ async function createResponse(data: any): Promise<void> {
       const newResponse = {
         id: Date.now().toString(),
         ...data,
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(),
       };
-      
+
       responses.push(newResponse);
-      
+
       chrome.storage.local.set({ responses }, () => {
         if (chrome.runtime.lastError) {
           reject(new Error(chrome.runtime.lastError.message));
@@ -1335,13 +1765,23 @@ async function createResponse(data: any): Promise<void> {
 }
 
 // Show edit modal for response
-function showEditModal(response: any, targetBox: HTMLElement, button: HTMLElement, menu: HTMLElement) {
+function showEditModal(
+  response: any,
+  targetBox: HTMLElement,
+  button: HTMLElement,
+  menu: HTMLElement
+) {
   // Create modal overlay
   const modalOverlay = document.createElement("div");
   modalOverlay.className = "sh-modal-overlay";
-  modalOverlay.setAttribute("data-theme", menu.getAttribute("data-theme") || "light");
+  modalOverlay.setAttribute(
+    "data-theme",
+    menu.getAttribute("data-theme") || "light"
+  );
 
-  const tags = Array.isArray(response.tags) ? response.tags.join(", ") : response.tags || "";
+  const tags = Array.isArray(response.tags)
+    ? response.tags.join(", ")
+    : response.tags || "";
 
   modalOverlay.innerHTML = `
     <div class="sh-modal">
@@ -1356,11 +1796,15 @@ function showEditModal(response: any, targetBox: HTMLElement, button: HTMLElemen
       <div class="sh-modal-body">
         <div class="sh-form-group">
           <label for="sh-edit-title" class="sh-form-label">Title</label>
-          <input id="sh-edit-title" class="sh-form-input" type="text" placeholder="e.g., Introduction message" value="${response.title || ""}">
+          <input id="sh-edit-title" class="sh-form-input" type="text" placeholder="e.g., Introduction message" value="${
+            response.title || ""
+          }">
         </div>
         <div class="sh-form-group">
           <label for="sh-edit-content" class="sh-form-label">Content</label>
-          <textarea id="sh-edit-content" class="sh-form-textarea" placeholder="Enter your response message..." rows="5">${response.content || ""}</textarea>
+          <textarea id="sh-edit-content" class="sh-form-textarea" placeholder="Enter your response message..." rows="5">${
+            response.content || ""
+          }</textarea>
         </div>
         <div class="sh-form-group">
           <label for="sh-edit-tags" class="sh-form-label">Tags</label>
@@ -1384,14 +1828,20 @@ function showEditModal(response: any, targetBox: HTMLElement, button: HTMLElemen
 
   // Focus on title input
   setTimeout(() => {
-    const titleInput = document.getElementById("sh-edit-title") as HTMLInputElement;
+    const titleInput = document.getElementById(
+      "sh-edit-title"
+    ) as HTMLInputElement;
     titleInput?.focus();
     titleInput?.select();
   }, 100);
 
   // Handle close
-  const closeBtn = modalOverlay.querySelector(".sh-modal-close") as HTMLButtonElement;
-  const cancelBtn = modalOverlay.querySelector("#sh-cancel-edit") as HTMLButtonElement;
+  const closeBtn = modalOverlay.querySelector(
+    ".sh-modal-close"
+  ) as HTMLButtonElement;
+  const cancelBtn = modalOverlay.querySelector(
+    "#sh-cancel-edit"
+  ) as HTMLButtonElement;
 
   const closeModal = () => {
     modalOverlay.remove();
@@ -1408,11 +1858,19 @@ function showEditModal(response: any, targetBox: HTMLElement, button: HTMLElemen
   });
 
   // Handle save
-  const saveBtn = modalOverlay.querySelector("#sh-save-edit") as HTMLButtonElement;
+  const saveBtn = modalOverlay.querySelector(
+    "#sh-save-edit"
+  ) as HTMLButtonElement;
   saveBtn.addEventListener("click", async () => {
-    const title = (document.getElementById("sh-edit-title") as HTMLInputElement).value.trim();
-    const content = (document.getElementById("sh-edit-content") as HTMLTextAreaElement).value.trim();
-    const tags = (document.getElementById("sh-edit-tags") as HTMLInputElement).value.trim();
+    const title = (
+      document.getElementById("sh-edit-title") as HTMLInputElement
+    ).value.trim();
+    const content = (
+      document.getElementById("sh-edit-content") as HTMLTextAreaElement
+    ).value.trim();
+    const tags = (
+      document.getElementById("sh-edit-tags") as HTMLInputElement
+    ).value.trim();
 
     if (!title || !content) {
       alert("Please fill in title and content");
@@ -1433,21 +1891,23 @@ function showEditModal(response: any, targetBox: HTMLElement, button: HTMLElemen
       await updateResponse(response.id, {
         title,
         content,
-        tags: tags.split(",").map(t => t.trim()).filter(Boolean)
+        tags: tags
+          .split(",")
+          .map((t) => t.trim())
+          .filter(Boolean),
       });
 
       // Show success message
       showToast("✅ Response updated successfully!");
-      
+
       // Close modal and menu
       closeModal();
       menu.remove();
-      
+
       // Refresh menu to show updated data
       setTimeout(() => {
         showResponseMenu(targetBox, button);
       }, 300);
-
     } catch (error) {
       console.error("Failed to update response:", error);
       alert("Failed to update response. Please try again.");
@@ -1473,12 +1933,14 @@ async function updateResponse(id: string, data: Partial<any>): Promise<void> {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     });
-    
+
     if (response.ok) {
       return;
     }
   } catch (error) {
-    console.log("Canner: Backend not available for update, using local storage");
+    console.log(
+      "Canner: Backend not available for update, using local storage"
+    );
   }
 
   // Fallback to Chrome storage
@@ -1486,10 +1948,10 @@ async function updateResponse(id: string, data: Partial<any>): Promise<void> {
     chrome.storage.local.get(["responses"], (result) => {
       const responses = result.responses || [];
       const index = responses.findIndex((r: any) => r.id === id);
-      
+
       if (index !== -1) {
         responses[index] = { ...responses[index], ...data };
-        
+
         chrome.storage.local.set({ responses }, () => {
           if (chrome.runtime.lastError) {
             reject(new Error(chrome.runtime.lastError.message));
@@ -1511,12 +1973,14 @@ async function deleteResponse(id: string): Promise<void> {
     const response = await fetch(`${CONFIG.API_URL}/api/responses/${id}`, {
       method: "DELETE",
     });
-    
+
     if (response.ok) {
       return;
     }
   } catch (error) {
-    console.log("Canner: Backend not available for delete, using local storage");
+    console.log(
+      "Canner: Backend not available for delete, using local storage"
+    );
   }
 
   // Fallback to Chrome storage
@@ -1524,7 +1988,7 @@ async function deleteResponse(id: string): Promise<void> {
     chrome.storage.local.get(["responses"], (result) => {
       const responses = result.responses || [];
       const filteredResponses = responses.filter((r: any) => r.id !== id);
-      
+
       chrome.storage.local.set({ responses: filteredResponses }, () => {
         if (chrome.runtime.lastError) {
           reject(new Error(chrome.runtime.lastError.message));
@@ -1584,7 +2048,7 @@ function insertText(box: HTMLElement, text: string) {
     // Try execCommand first
     let inserted = false;
     try {
-      inserted = document.execCommand('insertText', false, text);
+      inserted = document.execCommand("insertText", false, text);
     } catch (e) {
       inserted = false;
     }
@@ -1599,10 +2063,17 @@ function insertText(box: HTMLElement, text: string) {
       sel?.removeAllRanges();
       sel?.addRange(range);
       // Fire input and change events
-      box.dispatchEvent(new InputEvent('input', { bubbles: true, cancelable: true, data: text, inputType: 'insertText' }));
-      box.dispatchEvent(new Event('change', { bubbles: true }));
+      box.dispatchEvent(
+        new InputEvent("input", {
+          bubbles: true,
+          cancelable: true,
+          data: text,
+          inputType: "insertText",
+        })
+      );
+      box.dispatchEvent(new Event("change", { bubbles: true }));
     }
-    console.log('inserted');
+    console.log("inserted");
   } else if (
     box.tagName === "TEXTAREA" ||
     (box.tagName === "INPUT" && (box as HTMLInputElement).type === "text")
@@ -1822,8 +2293,14 @@ function handleTextSelection() {
   `;
 
   saveButton.style.position = "fixed";
-  saveButton.style.left = `${Math.min(rect.right + 5, window.innerWidth - 50)}px`;
-  saveButton.style.top = `${Math.min(rect.bottom + 5, window.innerHeight - 50)}px`;
+  saveButton.style.left = `${Math.min(
+    rect.right + 5,
+    window.innerWidth - 50
+  )}px`;
+  saveButton.style.top = `${Math.min(
+    rect.bottom + 5,
+    window.innerHeight - 50
+  )}px`;
   saveButton.style.zIndex = "999999";
   saveButton.style.pointerEvents = "all";
   saveButton.style.display = "block";
@@ -1842,7 +2319,10 @@ function handleTextSelection() {
     e.stopPropagation();
     e.stopImmediatePropagation();
 
-    console.log("Canner: Plus button clicked! Saving selected text:", textToSave);
+    console.log(
+      "Canner: Plus button clicked! Saving selected text:",
+      textToSave
+    );
 
     // Remove button immediately to prevent double clicks
     if (saveButton) {
@@ -1866,9 +2346,15 @@ function handleTextSelection() {
   };
 
   btn.addEventListener("click", clickHandler, { capture: true, once: true });
-  btn.addEventListener("mousedown", clickHandler, { capture: true, once: true });
+  btn.addEventListener("mousedown", clickHandler, {
+    capture: true,
+    once: true,
+  });
   btn.addEventListener("touchend", clickHandler, { capture: true, once: true });
-  saveButton.addEventListener("click", clickHandler, { capture: true, once: true });
+  saveButton.addEventListener("click", clickHandler, {
+    capture: true,
+    once: true,
+  });
 }
 
 // Show dialog to save selected text as response
@@ -2039,7 +2525,11 @@ async function saveResponseDirectly(text: string) {
     category: isTwitter ? "twitter-message" : "linkedin-message",
   };
 
-  console.log("Canner: Attempting to save to backend:", CONFIG.API_URL, responseData);
+  console.log(
+    "Canner: Attempting to save to backend:",
+    CONFIG.API_URL,
+    responseData
+  );
 
   // Try to save to backend first
   try {
@@ -2075,7 +2565,9 @@ async function saveResponseDirectly(text: string) {
     const newResponse = {
       id: Date.now().toString(),
       ...responseData,
-      tags: Array.isArray(responseData.tags) ? responseData.tags : [responseData.tags].filter(Boolean),
+      tags: Array.isArray(responseData.tags)
+        ? responseData.tags
+        : [responseData.tags].filter(Boolean),
       created_at: timestamp,
     };
 
@@ -2132,9 +2624,9 @@ if (document.readyState === "loading") {
 function isValidInputElement(element: HTMLElement | null): boolean {
   if (!element) return false;
 
-  const isContentEditable = element.getAttribute('contenteditable') === 'true';
+  const isContentEditable = element.getAttribute("contenteditable") === "true";
   const tagName = element.tagName?.toLowerCase();
-  const isInput = tagName === 'input' || tagName === 'textarea';
+  const isInput = tagName === "input" || tagName === "textarea";
 
   return isContentEditable || isInput;
 }
@@ -2151,30 +2643,34 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     console.log("Canner: Received insertResponse message", message);
 
     // Try to get the target element
-    let targetElement = lastFocusedInput || document.activeElement as HTMLElement | null;
+    let targetElement =
+      lastFocusedInput || (document.activeElement as HTMLElement | null);
 
     // If no focused element found, search for visible input elements
     if (!targetElement || !isValidInputElement(targetElement)) {
       const possibleInputs = [
         ...Array.from(document.querySelectorAll('[contenteditable="true"]')),
-        ...Array.from(document.querySelectorAll('textarea')),
-        ...Array.from(document.querySelectorAll('input[type="text"]'))
-      ].filter(el => {
+        ...Array.from(document.querySelectorAll("textarea")),
+        ...Array.from(document.querySelectorAll('input[type="text"]')),
+      ].filter((el) => {
         const rect = (el as HTMLElement).getBoundingClientRect();
         const style = window.getComputedStyle(el as HTMLElement);
-        return rect.width > 0 && rect.height > 0 &&
-          style.display !== 'none' &&
-          style.visibility !== 'hidden';
+        return (
+          rect.width > 0 &&
+          rect.height > 0 &&
+          style.display !== "none" &&
+          style.visibility !== "hidden"
+        );
       });
 
-      targetElement = possibleInputs[0] as HTMLElement || null;
+      targetElement = (possibleInputs[0] as HTMLElement) || null;
     }
 
     if (!targetElement || !isValidInputElement(targetElement)) {
       console.error("Canner: No valid input element found");
       sendResponse({
         success: false,
-        error: "Please click in an input field first"
+        error: "Please click in an input field first",
       });
       return true;
     }
@@ -2195,3 +2691,65 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   return true;
 });
+
+// Inject Quick Response button next to message boxes
+function injectQuickResponseButton() {
+  // LinkedIn DM selector
+  const linkedInMessageBoxes = document.querySelectorAll(
+    ".msg-form__contenteditable, .msg-form__textarea"
+  );
+
+  // Twitter/X DM selector
+  const twitterMessageBoxes = document.querySelectorAll(
+    '[data-testid="dmComposerTextInput"]'
+  );
+
+  const allMessageBoxes = [
+    ...Array.from(linkedInMessageBoxes),
+    ...Array.from(twitterMessageBoxes),
+  ];
+
+  allMessageBoxes.forEach((messageBox) => {
+    const parent = messageBox.parentElement;
+    if (!parent || parent.querySelector(".cannerai-quick-response-btn")) {
+      return; // Button already exists
+    }
+
+    // Create Quick Response button
+    const quickBtn = document.createElement("button");
+    quickBtn.className = "cannerai-quick-response-btn";
+    quickBtn.innerHTML = `
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/>
+      </svg>
+      <span>Quick Response</span>
+    `;
+    quickBtn.title = "Open Quick Responses";
+
+    // Position button appropriately
+    quickBtn.style.position = "relative";
+
+    // Click handler
+    quickBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      createResponsePopup(quickBtn, messageBox as HTMLElement);
+    });
+
+    // Insert button near the message box
+    parent.appendChild(quickBtn);
+  });
+}
+
+// Initialize: Watch for new message boxes (SPA apps load dynamically)
+const quickResponseObserver = new MutationObserver(() => {
+  injectQuickResponseButton();
+});
+
+quickResponseObserver.observe(document.body, {
+  childList: true,
+  subtree: true,
+});
+
+// Initial injection
+injectQuickResponseButton();

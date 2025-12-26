@@ -3,8 +3,8 @@
 /* ===== GRAMMARLY-STYLE PEN BUTTON ===== */
 .social-helper-pen {
   position: fixed;
-  width: 40px;
-  height: 40px;
+  width: 30px; /* Increased from 20px */
+  height: 30px; /* Increased from 20px */
   background: rgba(255, 255, 255, 0.95);
   border: 2px solid rgba(0, 0, 0, 0.08);
   border-radius: 50%;
@@ -19,6 +19,7 @@
   transform: scale(0.8) translateY(10px);
   -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
+  padding: 0;
 }
 
 /* Inline ghost suggestion shown after caret (grey completion) */
@@ -52,25 +53,33 @@
   vertical-align: baseline;
 }
 
-/* Show button on input focus/hover */
-.social-helper-pen.visible {
+/* Show button on input focus/hover OR when active (popup open) */
+.social-helper-pen.visible,
+.social-helper-pen.active {
   opacity: 1;
   transform: scale(1) translateY(0);
 }
 
 /* Hover state - expand to show text */
 .social-helper-pen:hover,
-.social-helper-pen.pen-hover {
+.social-helper-pen.pen-hover,
+.social-helper-pen.active {
   background: rgba(255, 255, 255, 0.98);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.16);
+  animation-duration: 2s;
+  /* Only expand width on hover, not just active state, to keep it circular when menu is open but not hovered */
+}
+
+.social-helper-pen:hover,
+.social-helper-pen.pen-hover {
   width: auto;
   min-width: 140px;
   border-radius: 24px;
   padding: 8px 16px;
   border-color: rgba(29, 161, 242, 0.2);
   transform: scale(1.02) translateY(-2px);
+  transition-duration: 2s;
 }
-
 /* Platform-specific accent colors */
 body[class*="linkedin"] .social-helper-pen:hover,
 .social-helper-pen[data-platform="linkedin"]:hover {
@@ -84,11 +93,14 @@ body[class*="linkedin"] .social-helper-pen:hover,
 }
 
 .pen-icon {
-  font-size: 20px;
+  font-size: 15px; /* Increased from 10px */
   line-height: 1;
   color: #666;
   transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
   filter: grayscale(0.2);
+  display: flex; /* Ensure centering */
+  align-items: center;
+  justify-content: center;
 }
 
 .social-helper-pen:hover .pen-icon,
@@ -105,8 +117,8 @@ body[class*="linkedin"] .social-helper-pen:hover .pen-icon,
 
 .pen-tooltip {
   color: #666;
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 9px;
+  font-weight: 500;
   margin-left: 10px;
   opacity: 0;
   width: 0;
@@ -180,7 +192,8 @@ body[class*="linkedin"] .social-helper-pen:hover .pen-icon,
   display: flex;
   flex-direction: column;
   animation: scaleIn 0.2s ease-out;
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI",
+    Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
 /* Dark mode support for menu */
@@ -273,7 +286,11 @@ body[class*="linkedin"] .social-helper-pen:hover .pen-icon,
   width: 2.5rem;
   height: 2.5rem;
   border-radius: var(--radius-sm);
-  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-hover) 100%);
+  background: linear-gradient(
+    135deg,
+    var(--accent) 0%,
+    var(--accent-hover) 100%
+  );
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1109,7 +1126,8 @@ textarea.lh-input {
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   animation: scaleIn 0.2s ease-out;
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI",
+    Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
 .sh-modal-header {
@@ -1258,4 +1276,204 @@ textarea.lh-input {
   opacity: 0.6;
   transform: none;
   box-shadow: none;
+}
+
+/* Popup Container */
+.cannerai-popup-container {
+  position: fixed; /* Ensure this is fixed */
+  width: 400px;
+  min-height: 500px; /* At least 500px */
+  max-height: 600px; /* But can grow up to 600px */
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(10px); /* Start slightly lower for "slide up" effect */
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.cannerai-popup-visible {
+  opacity: 1;
+  transform: translateY(0); /* Slide into place */
+}
+
+/* Adjust position if near screen edge */
+@media (max-width: 768px) {
+  .cannerai-popup-container {
+    width: 90vw;
+    max-width: 400px;
+    left: 50% !important;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  .cannerai-popup-container:not(.cannerai-popup-visible) {
+    transform: translateX(-50%) translateY(-10px);
+  }
+}
+
+/* Popup Header */
+.cannerai-popup-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.cannerai-popup-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.cannerai-close-btn {
+  background: transparent;
+  border: none;
+  color: white;
+  font-size: 28px;
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: background 0.2s;
+}
+
+.cannerai-close-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Popup Content */
+.cannerai-popup-content {
+  padding: 16px;
+  max-height: 440px;
+  overflow-y: auto;
+}
+
+/* Search Box */
+.cannerai-search-box {
+  margin-bottom: 12px;
+}
+
+.cannerai-search-box input {
+  width: 100%;
+  padding: 10px 16px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 14px;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+}
+
+.cannerai-search-box input:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+/* Responses List */
+.cannerai-responses-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cannerai-response-item {
+  padding: 12px;
+  background: #f8f9fa;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.cannerai-response-item:hover {
+  background: #667eea;
+  color: white;
+  transform: translateX(4px);
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+.cannerai-response-title {
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+
+.cannerai-response-content {
+  font-size: 13px;
+  color: #666;
+  margin-bottom: 8px;
+}
+
+.cannerai-response-item:hover .cannerai-response-content {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.cannerai-response-tags {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.cannerai-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  background: #e0e0e0;
+  border-radius: 12px;
+  font-size: 11px;
+  color: #666;
+}
+
+.cannerai-response-item:hover .cannerai-tag {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+}
+
+/* Loading & Error States */
+.cannerai-loading,
+.cannerai-no-responses,
+.cannerai-error {
+  padding: 40px 20px;
+  text-align: center;
+  color: #999;
+  font-size: 14px;
+}
+
+.cannerai-error {
+  color: #e74c3c;
+}
+
+/* Quick Response Button */
+.cannerai-quick-response-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s;
+  margin: 8px;
+}
+
+.cannerai-quick-response-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.cannerai-quick-response-btn svg {
+  width: 18px;
+  height: 18px;
 }
