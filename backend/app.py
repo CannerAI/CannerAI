@@ -9,10 +9,13 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 from pymongo import MongoClient, ASCENDING, DESCENDING, TEXT
 from pymongo.errors import ConnectionFailure, ServerSelectionTimeoutError
+from dotenv import load_dotenv
+load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
 
+print("DB URL Loaded:", bool(os.getenv("DATABASE_URL")))
 
 
 def get_db_connection(max_retries: int = 5, base_delay: float = 1.0):
