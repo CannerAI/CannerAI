@@ -1065,184 +1065,91 @@ function positionPenButton(
   inputElement: HTMLElement,
   penButton: HTMLElement
 ): void {
-  document.body.appendChild(penButton);
+  // New strategy: Position absolute inside the container
+  // Always use the parent element as the container.
+  // This prevents issues with:
+  // 1. input/textarea elements (cannot have children)
+  // 2. contenteditable elements managed by frameworks (React/Vue) which might remove "foreign" children
+  const container = inputElement.parentElement;
 
+  if (!container) {
+    return;
+  }
+
+  // Append button to container
+  if (container.isContentEditable) {
+    penButton.setAttribute("contenteditable", "false");
+  }
+
+  // Ensure button is in the container
+  if (penButton.parentElement !== container) {
+    container.appendChild(penButton);
+  }
+
+  // Style button
+  const buttonSize = 32;
+  const padding = 2;
+  const bottomOffset = -4; // Shift down to align with input text area
+
+  penButton.style.position = "absolute";
+  penButton.style.width = `${buttonSize}px`;
+  penButton.style.height = `${buttonSize}px`;
+  penButton.style.zIndex = "10000";
+  penButton.style.marginBottom = "0";
+  penButton.style.marginRight = "0";
+
+  // Calculate right offset based on input padding to avoid overlapping native icons
+  // If the input has large right padding (usually for icons), we position to the left of that padding
+  const inputStyle = window.getComputedStyle(inputElement);
+  const paddingRight = parseFloat(inputStyle.paddingRight) || 0;
+  const rightOffset = paddingRight > 20 ? paddingRight + 2 : padding;
+
+  // Anchor to bottom-right
+  penButton.style.top = "auto";
+  penButton.style.left = "auto";
+  penButton.style.bottom = `${bottomOffset}px`;
+  penButton.style.right = `${rightOffset}px`;
   let isVisible = false;
-  let showTimeout: number;
-  let hideTimeout: number;
-
-  const updatePosition = () => {
-    const rect = inputElement.getBoundingClientRect();
-
-    // Check if element is still visible
-    if (rect.width === 0 || rect.height === 0) {
-      hidePenButton();
-      return;
-    }
-
-    // Try to find any extension icon in the bottom-right corner of the input
-    // Look for common patterns: fixed/absolute positioned elements, button-like elements, etc.
-    const findExtensionIcon = (): HTMLElement | null => {
-      // Get all elements that might be extension icons
-      const candidates = Array.from(
-        document.querySelectorAll(
-          'button, div[role="button"], [class*="button"], [class*="icon"], [class*="extension"], [class*="helper"], [class*="assistant"]'
-        )
-      ) as HTMLElement[];
-
-      // Filter candidates that are:
-      // 1. Within or near the input element's bounding area
-      // 2. Positioned in the bottom-right corner
-      // 3. Not our own button
-      // 4. Small enough to be an icon (typically < 60px)
-      // 5. Fixed or absolute positioned
-      const extensionIcons = candidates.filter((el) => {
-        if (el.classList.contains("social-helper-pen")) return false;
-
-        const elRect = el.getBoundingClientRect();
-        const computedStyle = window.getComputedStyle(el);
-
-        // Must be positioned (fixed or absolute)
-        if (!["fixed", "absolute"].includes(computedStyle.position))
-          return false;
-
-        // Must be reasonably small (icon-sized)
-        if (elRect.width > 60 || elRect.height > 60) return false;
-        if (elRect.width < 16 || elRect.height < 16) return false;
-
-        // Must be visible
-        if (elRect.width === 0 || elRect.height === 0) return false;
-        if (
-          computedStyle.display === "none" ||
-          computedStyle.visibility === "hidden"
-        )
-          return false;
-        if (parseFloat(computedStyle.opacity) < 0.1) return false;
-
-        // Should be in the bottom-right area of the input
-        const isInBottomRightArea =
-          elRect.bottom >= rect.bottom - 60 &&
-          elRect.bottom <= rect.bottom + 20 &&
-          elRect.right >= rect.right - 100 &&
-          elRect.right <= rect.right + 20;
-
-        return isInBottomRightArea;
-      });
-
-      // Return the rightmost icon (closest to the right edge)
-      if (extensionIcons.length > 0) {
-        return extensionIcons.reduce((rightmost, current) => {
-          const rightmostRect = rightmost.getBoundingClientRect();
-          const currentRect = current.getBoundingClientRect();
-          return currentRect.right > rightmostRect.right ? current : rightmost;
-        });
-      }
-
-      return null;
-    };
-
-    const extensionIcon = findExtensionIcon();
-    let top: number;
-    let right: number;
-
-    if (extensionIcon) {
-      // Position to the left of the found extension icon
-      const iconRect = extensionIcon.getBoundingClientRect();
-      top = iconRect.top + (iconRect.height - 32) / 2; // Center vertically with the icon (32px = our button height)
-      right = window.innerWidth - iconRect.left + 8; // 8px gap to the left
-    } else {
-      // Fallback: Smart positioning like Grammarly if no extension icon found
-      top = rect.bottom - 25;
-      right = window.innerWidth - rect.right + 10;
-
-      // For larger inputs (like compose areas), position in bottom-right
-      if (rect.height > 60) {
-        top = rect.bottom - 30;
-        right = window.innerWidth - rect.right + 14;
-      }
-
-      // For inputs near the edge, adjust positioning
-      if (rect.right > window.innerWidth - 60) {
-        right = window.innerWidth - rect.left + 8;
-      }
-
-      // For inputs near the bottom, position above
-      if (rect.bottom > window.innerHeight - 60) {
-        top = rect.top - 50;
-      }
-    }
-
-    // Ensure button is always visible
-    top = Math.max(8, Math.min(top, window.innerHeight - 60));
-    right = Math.max(8, right);
-
-    penButton.style.position = "fixed";
-    penButton.style.top = `${top}px`;
-    penButton.style.right = `${right}px`;
-    penButton.style.zIndex = "10000";
-  };
 
   const showPenButton = () => {
-    clearTimeout(hideTimeout);
-    clearTimeout(showTimeout);
-
-    // Small delay like Grammarly
-    showTimeout = window.setTimeout(() => {
-      if (!isVisible) {
-        updatePosition();
-        penButton.classList.remove("hiding");
-        penButton.classList.add("visible");
-        isVisible = true;
-      }
-    }, 200);
+    penButton.classList.remove("hiding");
+    penButton.classList.add("visible");
+    isVisible = true;
   };
 
   const hidePenButton = () => {
-    clearTimeout(showTimeout);
-    clearTimeout(hideTimeout);
-
-    // Longer delay before hiding like Grammarly
-    hideTimeout = window.setTimeout(() => {
-      if (
-        isVisible &&
-        !penButton.matches(":hover") &&
-        !inputElement.matches(":focus")
-      ) {
-        penButton.classList.remove("visible");
-        penButton.classList.add("hiding");
-        isVisible = false;
-      }
-    }, 1500);
-  };
-
-  // Initial positioning (hidden)
-  updatePosition();
-
-  // Update position on scroll and resize
-  const updateHandler = () => {
-    if (isVisible) {
-      updatePosition();
+    if (
+      isVisible &&
+      !penButton.matches(":hover") &&
+      !inputElement.matches(":focus")
+    ) {
+      penButton.classList.remove("visible");
+      penButton.classList.add("hiding");
+      isVisible = false;
     }
   };
 
-  window.addEventListener("scroll", updateHandler, { passive: true });
-  window.addEventListener("resize", updateHandler, { passive: true });
+  // Initial state
+  if (document.activeElement === inputElement) {
+    showPenButton();
+  } else {
+    penButton.classList.add("hiding");
+  }
 
-  // Show/hide based on input interaction (like Grammarly)
+  // Event listeners
   inputElement.addEventListener("focus", showPenButton);
   inputElement.addEventListener("blur", hidePenButton);
   inputElement.addEventListener("input", showPenButton);
   inputElement.addEventListener("mouseenter", showPenButton);
   inputElement.addEventListener("mouseleave", hidePenButton);
 
-  // Keep button visible when hovering over it
   penButton.addEventListener("mouseenter", () => {
-    clearTimeout(hideTimeout);
+    isVisible = true;
+    showPenButton();
   });
-
   penButton.addEventListener("mouseleave", hidePenButton);
 
-  // Clean up listeners when element is removed
+  // Cleanup
   const observer = new MutationObserver((mutations) => {
     mutations.forEach((mutation) => {
       mutation.removedNodes.forEach((node) => {
@@ -1250,17 +1157,12 @@ function positionPenButton(
           node === inputElement ||
           (node as HTMLElement)?.contains?.(inputElement)
         ) {
-          clearTimeout(showTimeout);
-          clearTimeout(hideTimeout);
-          window.removeEventListener("scroll", updateHandler);
-          window.removeEventListener("resize", updateHandler);
           penButton.remove();
           observer.disconnect();
         }
       });
     });
   });
-
   observer.observe(document.body, { childList: true, subtree: true });
 }
 
