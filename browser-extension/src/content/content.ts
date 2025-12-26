@@ -21,7 +21,7 @@ async function createResponsePopup(
     existingPopup.remove();
     document
       .querySelectorAll(
-        ".social-helper-pen.active, .cannerai-quick-response-btn.active"
+        ".social-helper-pen.active"
       )
       .forEach((btn) => {
         btn.classList.remove("active");
@@ -1029,8 +1029,7 @@ function createPenButton(targetBox: HTMLElement): HTMLElement {
   penContainer.innerHTML = `
   <div class="pen-tooltip">Quick Response</div>
     <div class="pen-icon">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M19.5 4.7832V7.6709L22 9.11426V14.8867L19.499 16.3311L19.5 19.2178L14.5 22.1045L12 20.6611L9.5 22.1045L4.5 19.2178V16.3311L2 14.8877L2.00098 9.11328L4.5 7.66992V4.78418L9.5 1.89746L11.999 3.34082L14.501 1.89648L19.5 4.7832ZM14.7354 13.1602C14.6471 12.9473 14.3529 12.9473 14.2646 13.1602L14.1377 13.4648C13.9218 13.986 13.5192 14.4027 13.0127 14.6279L12.6543 14.7871C12.449 14.8784 12.449 15.1772 12.6543 15.2686L13.0342 15.4375C13.5279 15.6571 13.9239 16.0586 14.1436 16.5625L14.2666 16.8447C14.3568 17.0517 14.6432 17.0517 14.7334 16.8447L14.8564 16.5625C15.0761 16.0586 15.4721 15.6571 15.9658 15.4375L16.3457 15.2686C16.5511 15.1773 16.5511 14.8784 16.3457 14.7871L15.9873 14.6279C15.4807 14.4027 15.0773 13.986 14.8613 13.4648L14.7354 13.1602ZM10.4121 7.7793C10.2577 7.40689 9.74245 7.40691 9.58789 7.7793L9.36621 8.31445C8.98834 9.22695 8.28386 9.95622 7.39746 10.3506L6.76953 10.6299C6.41032 10.7898 6.41029 11.3128 6.76953 11.4727L7.43457 11.7676C8.2987 12.152 8.99142 12.8549 9.37598 13.7373L9.5918 14.2324C9.74973 14.5948 10.2503 14.5948 10.4082 14.2324L10.624 13.7373C11.0086 12.8549 11.7013 12.152 12.5654 11.7676L13.2305 11.4727C13.5898 11.3128 13.5897 10.7899 13.2305 10.6299L12.6025 10.3506C11.7161 9.95622 11.0108 9.22696 10.6328 8.31445L10.4121 7.7793Z"></path>
-      </svg>
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M4.7134 7.12811L4.46682 7.69379C4.28637 8.10792 3.71357 8.10792 3.53312 7.69379L3.28656 7.12811C2.84706 6.11947 2.05545 5.31641 1.06767 4.87708L0.308047 4.53922C-0.102682 4.35653 -0.102682 3.75881 0.308047 3.57612L1.0252 3.25714C2.03838 2.80651 2.84417 1.97373 3.27612 0.930828L3.52932 0.319534C3.70578 -0.106511 4.29417 -0.106511 4.47063 0.319534L4.72382 0.930828C5.15577 1.97373 5.96158 2.80651 6.9748 3.25714L7.69188 3.57612C8.10271 3.75881 8.10271 4.35653 7.69188 4.53922L6.93228 4.87708C5.94451 5.31641 5.15288 6.11947 4.7134 7.12811ZM3.06361 21.6132C4.08854 15.422 6.31105 1.99658 21 1.99658C19.5042 4.99658 18.5 6.49658 17.5 7.49658L16.5 8.49658L18 9.49658C17 12.4966 14 15.9966 10 16.4966C7.33146 16.8301 5.66421 18.6635 4.99824 21.9966H3C3.02074 21.8722 3.0419 21.7443 3.06361 21.6132Z"></path></svg>
     </div>
   `;
   penContainer.title = "Click for quick responses (Ctrl+Shift+L)";
@@ -2669,64 +2668,5 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   return true;
 });
 
-// Inject Quick Response button next to message boxes
-function injectQuickResponseButton() {
-  // LinkedIn DM selector
-  const linkedInMessageBoxes = document.querySelectorAll(
-    ".msg-form__contenteditable, .msg-form__textarea"
-  );
 
-  // Twitter/X DM selector
-  const twitterMessageBoxes = document.querySelectorAll(
-    '[data-testid="dmComposerTextInput"]'
-  );
 
-  const allMessageBoxes = [
-    ...Array.from(linkedInMessageBoxes),
-    ...Array.from(twitterMessageBoxes),
-  ];
-
-  allMessageBoxes.forEach((messageBox) => {
-    const parent = messageBox.parentElement;
-    if (!parent || parent.querySelector(".cannerai-quick-response-btn")) {
-      return; // Button already exists
-    }
-
-    // Create Quick Response button
-    const quickBtn = document.createElement("button");
-    quickBtn.className = "cannerai-quick-response-btn";
-    quickBtn.innerHTML = `
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/>
-      </svg>
-      <span>Quick Response</span>
-    `;
-    quickBtn.title = "Open Quick Responses";
-
-    // Position button appropriately
-    quickBtn.style.position = "relative";
-
-    // Click handler
-    quickBtn.addEventListener("click", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      createResponsePopup(quickBtn, messageBox as HTMLElement);
-    });
-
-    // Insert button near the message box
-    parent.appendChild(quickBtn);
-  });
-}
-
-// Initialize: Watch for new message boxes (SPA apps load dynamically)
-const quickResponseObserver = new MutationObserver(() => {
-  injectQuickResponseButton();
-});
-
-quickResponseObserver.observe(document.body, {
-  childList: true,
-  subtree: true,
-});
-
-// Initial injection
-injectQuickResponseButton();

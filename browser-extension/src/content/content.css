@@ -3,8 +3,8 @@
 /* ===== GRAMMARLY-STYLE PEN BUTTON ===== */
 .social-helper-pen {
   position: fixed;
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   background: rgba(255, 255, 255, 0.95);
   border: 2px solid rgba(0, 0, 0, 0.08);
   border-radius: 50%;
@@ -100,8 +100,8 @@ body[class*="linkedin"] .social-helper-pen:hover,
 }
 
 .pen-icon svg {
-  width: 24px;
-  height: 24px;
+  width: 18px;
+  height: 18px;
   display: block;
   color: inherit;
 }
