@@ -39,3 +39,16 @@
 - [x] **Positioning Adjustments:**
     -Shifted the button position slightly downwards relative to the input box.
     -Adjusted popup anchoring to ensure the DM box remains visible/accessible.
+
+
+# Task - 3
+    Fix the error, the quick response pen button is not arrived for comment sections of LinkedIn
+
+## ✅ Completed Task
+    Now its is totaly visible for Comments section also
+- [x] **Button Styling:** 
+    -added correct selectors for comment box
+    'div.ql-editor[contenteditable="true"]',
+    'div[role="textbox"][contenteditable="true"]',
+    'div[aria-placeholder*="comment" i]',
+    'div[data-placeholder*="comment" i]',

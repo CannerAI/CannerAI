@@ -19,12 +19,16 @@ async function createResponsePopup(
   const existingPopup = document.querySelector(".social-helper-menu");
   if (existingPopup) {
     existingPopup.remove();
-    document.querySelectorAll(".social-helper-pen.active, .cannerai-quick-response-btn.active").forEach(btn => {
-      btn.classList.remove("active");
-    });
+    document
+      .querySelectorAll(
+        ".social-helper-pen.active, .cannerai-quick-response-btn.active"
+      )
+      .forEach((btn) => {
+        btn.classList.remove("active");
+      });
   }
-   // Add active class to the current button to keep it visible
-   buttonElement.classList.add("active");
+  // Add active class to the current button to keep it visible
+  buttonElement.classList.add("active");
 
   // Load theme preference
   const result = await chrome.storage.sync.get(["theme"]);
@@ -853,6 +857,10 @@ function addMessageHelpers() {
   console.log("Social Helper: Adding message helpers...");
 
   const selectors = [
+    'div.ql-editor[contenteditable="true"]',
+    'div[role="textbox"][contenteditable="true"]',
+    'div[aria-placeholder*="comment" i]',
+    'div[data-placeholder*="comment" i]',
     '[contenteditable="true"]',
     'textarea[placeholder*="comment" i]',
     'textarea[placeholder*="message" i]',
@@ -887,7 +895,7 @@ function addMessageHelpers() {
       rect.height
     );
 
-    if (rect.width < 100 || rect.height < 20) {
+    if (rect.width < 40 || rect.height < 16) {
       console.log(`Social Helper: Skipping element ${index + 1} - too small`);
       return;
     }
@@ -1019,8 +1027,8 @@ function createPenButton(targetBox: HTMLElement): HTMLElement {
   }
 
   penContainer.innerHTML = `
+  <div class="pen-tooltip">Quick Response</div>
     <div class="pen-icon">✏️</div>
-    <div class="pen-tooltip">Quick Response</div>
   `;
   penContainer.title = "Click for quick responses (Ctrl+Shift+L)";
 
