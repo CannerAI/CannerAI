@@ -10,6 +10,58 @@ const CONFIG = {
 // helps to track the last focused input
 let lastFocusedInput: HTMLElement | null = null;
 
+// Make popup draggable by header
+function makeDraggable(popup: HTMLElement) {
+  const header = popup.querySelector(".sh-menu-header") as HTMLElement;
+  if (!header) return;
+
+  let isDragging = false;
+  let offsetX = 0;
+  let offsetY = 0;
+
+  header.style.cursor = "move";
+
+  const onMouseDown = (e: MouseEvent) => {
+    if ((e.target as HTMLElement).closest("button, input")) return;
+    isDragging = true;
+    offsetX = e.clientX - popup.getBoundingClientRect().left;
+    offsetY = e.clientY - popup.getBoundingClientRect().top;
+    header.style.cursor = "grabbing";
+  };
+
+  const onMouseMove = (e: MouseEvent) => {
+    if (!isDragging) return;
+    let x = e.clientX - offsetX;
+    let y = e.clientY - offsetY;
+    x = Math.max(0, Math.min(x, window.innerWidth - popup.offsetWidth));
+    y = Math.max(0, Math.min(y, window.innerHeight - popup.offsetHeight));
+    popup.style.left = `${x}px`;
+    popup.style.top = `${y}px`;
+  };
+
+  const onMouseUp = () => {
+    isDragging = false;
+    header.style.cursor = "move";
+  };
+
+  header.addEventListener("mousedown", onMouseDown);
+  document.addEventListener("mousemove", onMouseMove);
+  document.addEventListener("mouseup", onMouseUp);
+
+  const observer = new MutationObserver((mutations) => {
+    mutations.forEach((mutation) => {
+      mutation.removedNodes.forEach((node) => {
+        if (node === popup) {
+          document.removeEventListener("mousemove", onMouseMove);
+          document.removeEventListener("mouseup", onMouseUp);
+          observer.disconnect();
+        }
+      });
+    });
+  });
+  observer.observe(document.body, { childList: true });
+}
+
 // Function to create and show the popup
 async function createResponsePopup(
   buttonElement: HTMLElement,
@@ -19,13 +71,9 @@ async function createResponsePopup(
   const existingPopup = document.querySelector(".social-helper-menu");
   if (existingPopup) {
     existingPopup.remove();
-    document
-      .querySelectorAll(
-        ".social-helper-pen.active"
-      )
-      .forEach((btn) => {
-        btn.classList.remove("active");
-      });
+    document.querySelectorAll(".social-helper-pen.active").forEach((btn) => {
+      btn.classList.remove("active");
+    });
   }
   // Add active class to the current button to keep it visible
   buttonElement.classList.add("active");
@@ -118,6 +166,9 @@ async function createResponsePopup(
   `;
 
   document.body.appendChild(popup);
+
+  // Make popup draggable
+  makeDraggable(popup);
 
   // Add theme toggle functionality
   const themeToggle = popup.querySelector(
@@ -2667,6 +2718,3 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   return true;
 });
-
-
-
