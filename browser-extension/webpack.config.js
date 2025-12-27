@@ -1,13 +1,16 @@
 const path = require('path');
 const CopyPlugin = require('copy-webpack-plugin');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
+const webpack = require('webpack');
+require('dotenv').config({ path: `.env.${process.env.NODE_ENV || 'development'}` });
 
 module.exports = {
     entry: {
         popup: './src/popup/index.tsx',
         content: './src/content/content.ts',
         background: './src/background/background.ts',
-        welcome: './src/welcome/welcome.ts'
+        welcome: './src/welcome/welcome.ts',
+        'auth-callback': './src/auth/auth-callback-index.tsx'
     },
     output: {
         path: path.resolve(__dirname, 'dist'),
@@ -31,6 +34,13 @@ module.exports = {
         extensions: ['.tsx', '.ts', '.js']
     },
     plugins: [
+        // Define environment variables for the app
+        new webpack.DefinePlugin({
+            'process.env.REACT_APP_BACKEND_URL': JSON.stringify(process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000'),
+            'process.env.REACT_APP_AUTH_URL': JSON.stringify(process.env.REACT_APP_AUTH_URL || 'http://localhost:3000'),
+            'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development'),
+            '__API_URL__': JSON.stringify(process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000')
+        }),
         new HtmlWebpackPlugin({
             template: './src/popup/popup.html',
             filename: 'popup.html',
@@ -40,6 +50,11 @@ module.exports = {
             template: './src/welcome/welcome.html',
             filename: 'welcome.html',
             chunks: ['welcome']
+        }),
+        new HtmlWebpackPlugin({
+            template: './src/auth/auth-callback.html',
+            filename: 'auth-callback.html',
+            chunks: ['auth-callback']
         }),
         new CopyPlugin({
             patterns: [

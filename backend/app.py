@@ -3,10 +3,12 @@ import os
 import time
 from datetime import datetime
 from typing import Any, Dict
+from functools import wraps
 
 from bson import ObjectId
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
+import jwt
 from pymongo import MongoClient, ASCENDING, DESCENDING, TEXT
 from pymongo.errors import ConnectionFailure, ServerSelectionTimeoutError
 from dotenv import load_dotenv
@@ -14,6 +16,11 @@ load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
+
+# Configuration
+SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key")
+JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "dev-jwt-secret")
+JWT_ALGORITHM = "HS256"
 
 print("DB URL Loaded:", bool(os.getenv("DATABASE_URL")))
 
@@ -94,6 +101,7 @@ def init_db(max_retries: int = 10):
             
             # Other indexes
             collection.create_index([('tags', ASCENDING)], name='idx_canned_responses_tags', background=True)
+            collection.create_index([('user_id', ASCENDING)], name='idx_canned_responses_user_id', background=True)
             collection.create_index([('created_at', DESCENDING)], name='idx_canned_responses_created_at', background=True)
             collection.create_index([('updated_at', DESCENDING)], name='idx_canned_responses_updated_at', background=True)
 
@@ -130,29 +138,78 @@ def dict_from_doc(doc) -> Dict[str, Any]:
         "title": doc["title"],
         "content": doc["content"],
         "tags": tags,
+        "user_id": doc.get("user_id"),
         "created_at": doc["created_at"].isoformat() if doc.get("created_at") else None,
         "updated_at": doc["updated_at"].isoformat() if doc.get("updated_at") else None,
     }
 
 
-@app.route("/api/responses", methods=["GET"])
-def get_responses():
-    """Get all responses, optionally filtered by search query."""
+# ==================== JWT Authentication ====================
+
+def verify_jwt(token: str) -> dict:
+    """Verify and decode a JWT token."""
+    try:
+        payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
+        return payload
+    except jwt.ExpiredSignatureError:
+        raise ValueError("Token has expired")
+    except jwt.InvalidTokenError:
+        raise ValueError("Invalid token")
+
+
+def require_auth(f):
+    """Decorator to protect routes with JWT authentication."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        auth_header = request.headers.get("Authorization")
+        
+        if not auth_header:
+            return jsonify({"error": "No authorization header"}), 401
+        
+        try:
+            # Extract Bearer token
+            token = auth_header.replace("Bearer ", "")
+            payload = verify_jwt(token)
+            
+            # Add user info to request context
+            request.user_id = payload["user_id"]
+            
+            return f(*args, **kwargs)
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 401
+    
+    return decorated_function
+
+
+# ==================== JWT Verification (Auth handled by FastAPI) ====================
+# Flask only verifies JWT tokens - all auth logic is in FastAPI backend
+
+
+# ==================== Protected Endpoints (Require JWT) ====================
+
+@app.route("/api/templates", methods=["GET"])
+@require_auth
+def get_templates():
+    """Get user-specific canned messages. Protected endpoint."""
+    user_id = request.user_id
     search = request.args.get("search", "")
 
     db = get_db_connection()
     collection = db['canned_responses']
 
+    # Filter by user_id
+    base_query = {'user_id': user_id}
+
     if search:
-        # MongoDB text search or regex for partial matching
         try:
-            # Try text search first (faster with index)
-            query = {'$text': {'$search': search}}
+            # Text search with user filter
+            query = {**base_query, '$text': {'$search': search}}
             cursor = collection.find(query).sort('created_at', DESCENDING)
             responses = [dict_from_doc(doc) for doc in cursor]
         except Exception:
-            # Fallback to regex if text index not available
+            # Fallback to regex
             query = {
+                **base_query,
                 '$or': [
                     {'title': {'$regex': search, '$options': 'i'}},
                     {'content': {'$regex': search, '$options': 'i'}},
@@ -162,20 +219,61 @@ def get_responses():
             cursor = collection.find(query).sort('created_at', DESCENDING)
             responses = [dict_from_doc(doc) for doc in cursor]
     else:
-        cursor = collection.find().sort('created_at', DESCENDING)
+        cursor = collection.find(base_query).sort('created_at', DESCENDING)
+        responses = [dict_from_doc(doc) for doc in cursor]
+
+    return jsonify(responses)
+
+
+@app.route("/api/responses", methods=["GET"])
+@require_auth
+def get_responses():
+    """Get user-specific responses. Protected endpoint."""
+    user_id = request.user_id
+    search = request.args.get("search", "")
+
+    db = get_db_connection()
+    collection = db['canned_responses']
+
+    # Filter by user_id
+    base_query = {'user_id': user_id}
+
+    if search:
+        # MongoDB text search or regex for partial matching
+        try:
+            # Try text search first (faster with index)
+            query = {**base_query, '$text': {'$search': search}}
+            cursor = collection.find(query).sort('created_at', DESCENDING)
+            responses = [dict_from_doc(doc) for doc in cursor]
+        except Exception:
+            # Fallback to regex if text index not available
+            query = {
+                **base_query,
+                '$or': [
+                    {'title': {'$regex': search, '$options': 'i'}},
+                    {'content': {'$regex': search, '$options': 'i'}},
+                    {'tags': {'$regex': search, '$options': 'i'}}
+                ]
+            }
+            cursor = collection.find(query).sort('created_at', DESCENDING)
+            responses = [dict_from_doc(doc) for doc in cursor]
+    else:
+        cursor = collection.find(base_query).sort('created_at', DESCENDING)
         responses = [dict_from_doc(doc) for doc in cursor]
 
     return jsonify(responses)
 
 
 @app.route("/api/responses/<response_id>", methods=["GET"])
+@require_auth
 def get_response(response_id: str):
-    """Get a single response by ID."""
+    """Get a single response by ID. Protected endpoint."""
+    user_id = request.user_id
     db = get_db_connection()
     collection = db['canned_responses']
 
     try:
-        doc = collection.find_one({'_id': ObjectId(response_id)})
+        doc = collection.find_one({'_id': ObjectId(response_id), 'user_id': user_id})
     except Exception:
         return jsonify({"error": "Invalid response ID"}), 400
 
@@ -186,8 +284,10 @@ def get_response(response_id: str):
 
 
 @app.route("/api/responses", methods=["POST"])
+@require_auth
 def create_response():
-    """Create a new response."""
+    """Create a new response. Protected endpoint."""
+    user_id = request.user_id
     data = request.get_json()
 
     if not data or "title" not in data or "content" not in data:
@@ -205,6 +305,7 @@ def create_response():
         'title': title,
         'content': content,
         'tags': tags,
+        'user_id': user_id,
         'created_at': now,
         'updated_at': now
     }
@@ -216,8 +317,10 @@ def create_response():
 
 
 @app.route("/api/responses/<response_id>", methods=["PATCH"])
+@require_auth
 def update_response(response_id: str):
-    """Update an existing response (partial update)."""
+    """Update an existing response (partial update). Protected endpoint."""
+    user_id = request.user_id
     data = request.get_json()
 
     if not data:
@@ -231,8 +334,8 @@ def update_response(response_id: str):
     except Exception:
         return jsonify({"error": "Invalid response ID"}), 400
 
-    # Check if response exists
-    existing = collection.find_one({'_id': object_id})
+    # Check if response exists and belongs to user
+    existing = collection.find_one({'_id': object_id, 'user_id': user_id})
     
     if not existing:
         return jsonify({"error": "Response not found"}), 404
@@ -262,8 +365,10 @@ def update_response(response_id: str):
 
 
 @app.route("/api/responses/<response_id>", methods=["DELETE"])
+@require_auth
 def delete_response(response_id: str):
-    """Delete a response."""
+    """Delete a response. Protected endpoint."""
+    user_id = request.user_id
     db = get_db_connection()
     collection = db['canned_responses']
 
@@ -272,7 +377,7 @@ def delete_response(response_id: str):
     except Exception:
         return jsonify({"error": "Invalid response ID"}), 400
 
-    result = collection.delete_one({'_id': object_id})
+    result = collection.delete_one({'_id': object_id, 'user_id': user_id})
     
     if result.deleted_count == 0:
         return jsonify({"error": "Response not found"}), 404

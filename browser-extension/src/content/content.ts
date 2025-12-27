@@ -1,8 +1,11 @@
 // Canner content script — injects helper UI into social sites
-console.log("Canner: Content script loaded");
+// Note: Can't use ES6 imports in content scripts injected this way
+// Config will be injected via webpack DefinePlugin
+
+declare const __API_URL__: string;
 
 const CONFIG = {
-  API_URL: "http://localhost:5000",
+  API_URL: typeof __API_URL__ !== 'undefined' ? __API_URL__ : "http://localhost:5000",
   BUTTON_ICON: "💬",
   BUTTON_COLOR: "#0a66c2", // LinkedIn blue
 };
@@ -1752,10 +1755,19 @@ function showCreateModal(
 // Create response function
 async function createResponse(data: any): Promise<void> {
   try {
+    // Get JWT token
+    const storage = await chrome.storage.local.get(['app_jwt_token']);
+    const token = storage.app_jwt_token;
+    
+    const headers: any = { "Content-Type": "application/json" };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    
     // Try backend first
     const response = await fetch(`${CONFIG.API_URL}/api/responses`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify(data),
     });
 
@@ -1954,10 +1966,19 @@ function showEditModal(
 // Update response function
 async function updateResponse(id: string, data: Partial<any>): Promise<void> {
   try {
+    // Get JWT token
+    const storage = await chrome.storage.local.get(['app_jwt_token']);
+    const token = storage.app_jwt_token;
+    
+    const headers: any = { "Content-Type": "application/json" };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    
     // Try backend first
     const response = await fetch(`${CONFIG.API_URL}/api/responses/${id}`, {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify(data),
     });
 
@@ -1996,9 +2017,19 @@ async function updateResponse(id: string, data: Partial<any>): Promise<void> {
 // Add delete response function
 async function deleteResponse(id: string): Promise<void> {
   try {
+    // Get JWT token
+    const storage = await chrome.storage.local.get(['app_jwt_token']);
+    const token = storage.app_jwt_token;
+    
+    const headers: any = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    
     // Try backend first
     const response = await fetch(`${CONFIG.API_URL}/api/responses/${id}`, {
       method: "DELETE",
+      headers,
     });
 
     if (response.ok) {
@@ -2030,10 +2061,32 @@ async function deleteResponse(id: string): Promise<void> {
 // Fetch responses from backend or Chrome storage
 async function fetchResponses(): Promise<any[]> {
   try {
-    // Try backend first
-    const response = await fetch(`${CONFIG.API_URL}/api/responses`);
+    // Get JWT token from storage
+    const storage = await chrome.storage.local.get(['app_jwt_token']);
+    const token = storage.app_jwt_token;
+    
+    if (!token) {
+      console.log("Canner: No auth token, using local storage");
+      // Fallback to Chrome storage
+      return new Promise((resolve) => {
+        chrome.storage.local.get(["responses"], (result) => {
+          resolve(result.responses || []);
+        });
+      });
+    }
+    
+    // Try backend with authentication
+    const response = await fetch(`${CONFIG.API_URL}/api/responses`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
     if (response.ok) {
-      return await response.json();
+      const data = await response.json();
+      // Cache in Chrome storage
+      chrome.storage.local.set({ responses: data });
+      return data;
     }
   } catch (error) {
     console.log("Canner: Backend not available, using local storage");
@@ -2466,9 +2519,17 @@ async function _showSaveDialog(text: string) {
 
     // Save the response
     try {
+      const storage = await chrome.storage.local.get(['app_jwt_token']);
+      const token = storage.app_jwt_token;
+      
+      const headers: any = { "Content-Type": "application/json" };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      
       const response = await fetch(`${CONFIG.API_URL}/api/responses`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
           title,
           content,
@@ -2560,12 +2621,20 @@ async function saveResponseDirectly(text: string) {
 
   // Try to save to backend first
   try {
+    const storage = await chrome.storage.local.get(['app_jwt_token']);
+    const token = storage.app_jwt_token;
+    
+    const headers: any = {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    
     const response = await fetch(`${CONFIG.API_URL}/api/responses`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
+      headers,
       body: JSON.stringify(responseData),
     });
 
@@ -2639,11 +2708,12 @@ if (document.readyState === "loading") {
       setTimeout(init, 1000);
     });
 
-    // Additional periodic scan for new inputs (covers dynamically loaded DMs/replies)
+    // Reduced periodic scan - only run every 10 seconds instead of 3
+    // This still catches new inputs but reduces console spam
     setInterval(() => {
       addMessageHelpers();
       addConnectionHelpers();
-    }, 3000);
+    }, 10000); // Changed from 3000 to 10000
   }
 }
 

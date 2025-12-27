@@ -4,3 +4,4 @@ Werkzeug==3.0.1
 pymongo==4.6.1
 python-dotenv==1.0.0
 flask-swagger-ui==4.11.1
+PyJWT==2.8.0

@@ -9,12 +9,8 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: canner_backend
-    environment:
-      - DATABASE_URL=mongodb+srv://<username>:<password>@<cluster>.mongodb.net/?appName=Cluster0
-      - MONGODB_DB_NAME=cannerai_db
-      - FLASK_ENV=development
-      - FLASK_DEBUG=1
-      - FLASK_APP=app.py
+    env_file:
+      - ./backend/.env.development
     ports:
       - "5000:5000"
     volumes:

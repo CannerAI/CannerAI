@@ -2,6 +2,19 @@
 .venv/
 venv/
 
+# Environment variables
+.env
+.env.local
+.env.*.local
+.env.development
+.env.production
+backend/.env
+backend/.env.development
+backend/.env.production
+browser-extension/.env
+browser-extension/.env.development
+browser-extension/.env.production
+
 # Linting cache files
 .eslintcache
 .markdownlintcache
@@ -27,10 +40,24 @@ Thumbs.db
 *.tmp
 *.temp
 *.log
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
 # Database files
 *.db
 *.sqlite
 *.sqlite3
 
+# Node modules and build outputs
+node_modules/
+dist/
+build/
+*.tgz
+package-lock.json
 
 refrence_pics

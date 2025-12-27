@@ -15,15 +15,9 @@ if (closeBtn) {
   });
 }
 
-// Track page view with enhanced analytics
+// Track page view - minimal tracking
 chrome.storage.local.set({
   welcomePageViewed: true,
-  welcomePageViewedAt: new Date().toISOString(),
-  welcomePageVersion: '3.0-enhanced-navbar',
-  userAgent: navigator.userAgent,
-  language: navigator.language,
-  platform: navigator.platform,
-  screenResolution: `${screen.width}x${screen.height}`
 });
 
 // Footer: populate current year

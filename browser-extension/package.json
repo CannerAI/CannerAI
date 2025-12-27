@@ -3,17 +3,20 @@
   "version": "1.0.0",
   "description": "Canner Browser Extension",
   "scripts": {
-    "build": "webpack --mode production",
-    "dev": "webpack --mode development --watch",
+    "build": "NODE_ENV=production webpack --mode production",
+    "build:dev": "NODE_ENV=development webpack --mode development",
+    "dev": "NODE_ENV=development webpack --mode development --watch",
     "lint": "eslint src --ext .ts,.tsx"
   },
   "dependencies": {
+    "axios": "^1.6.2",
+    "dotenv": "^17.2.3",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "axios": "^1.6.2"
+    "react-dom": "^18.2.0"
   },
   "devDependencies": {
     "@types/chrome": "^0.0.254",
+    "@types/node": "^25.0.3",
     "@types/react": "^18.2.43",
     "@types/react-dom": "^18.2.17",
     "@typescript-eslint/eslint-plugin": "^6.14.0",

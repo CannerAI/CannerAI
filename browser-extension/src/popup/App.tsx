@@ -2,13 +2,16 @@ import React, { useEffect, useState } from "react";
 import {
   deleteResponse,
   getResponses,
-  Response,
+  CannedMessage,
   saveResponse,
   updateResponse,
+  isAuthenticated,
+  initiateLogin,
+  clearAuth,
 } from "../utils/api";
 
 const App: React.FC = () => {
-  const [responses, setResponses] = useState<Response[]>([]);
+  const [responses, setResponses] = useState<CannedMessage[]>([]);
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -18,15 +21,30 @@ const App: React.FC = () => {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
 
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [tags, setTags] = useState("");
+  
   useEffect(() => {
-    load();
+    checkAuth();
     loadTheme();
-    loadEditId();
   }, []);
+
+  useEffect(() => {
+    if (isLoggedIn === true) {
+      load();
+      loadEditId();
+    } else if (isLoggedIn === false) {
+      setLoading(false);
+    }
+  }, [isLoggedIn]);
+
+  async function checkAuth() {
+    const authenticated = await isAuthenticated();
+    setIsLoggedIn(authenticated);
+  }
 
   useEffect(() => {
     if (notification) {
@@ -88,7 +106,7 @@ const App: React.FC = () => {
     setShowModal(true);
   }
 
-  function openEditModal(r: Response) {
+  function openEditModal(r: CannedMessage) {
     setIsEditing(true);
     setEditingId(r.id || null);
     setTitle(r.title || "");
@@ -116,7 +134,7 @@ const App: React.FC = () => {
       setNotification("⚠️ Title and content are required");
       return;
     }
-    const baseData: Partial<Response> = {
+    const baseData: Partial<CannedMessage> = {
       title: title.trim(),
       content: content.trim(),
       tags: tags
@@ -129,7 +147,7 @@ const App: React.FC = () => {
       // Optimistic update for edit
       const prev = responses;
       const optimistic = responses.map((r) =>
-        r.id === editingId ? ({ ...r, ...baseData } as Response) : r
+        r.id === editingId ? ({ ...r, ...baseData } as CannedMessage) : r
       );
       setResponses(optimistic);
       setSaving(true);
@@ -156,7 +174,7 @@ const App: React.FC = () => {
       setNotification("⌛ Saving...");
       try {
         // 1. Call our fixed saveResponse
-        const savedItem = await saveResponse(baseData as Response);
+        const savedItem = await saveResponse(baseData as CannedMessage);
 
         // 2. Optimistic update: Add to front of state, NO `load()`
         setResponses((currentResponses) => [savedItem, ...currentResponses]);
@@ -308,6 +326,117 @@ const App: React.FC = () => {
   //   });
   // }
 
+  // Show login page if not authenticated
+  if (isLoggedIn === false) {
+    return (
+      <div className="popup-container login-container">
+        {notification && <div className="notification">{notification}</div>}
+        <div className="login-content">
+          <div className="login-header">
+            <div className="brand-logo-large">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
+                <path
+                  d="M12 2L2 7L12 12L22 7L12 2Z"
+                  fill="currentColor"
+                  opacity="0.9"
+                />
+                <path
+                  d="M2 17L12 22L22 17"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
+                <path
+                  d="M2 12L12 17L22 12"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </div>
+            <h1 className="login-title">Welcome to Canner</h1>
+            <p className="login-subtitle">Your intelligent response management tool</p>
+          </div>
+          
+          <div className="login-features">
+            <div className="feature-item">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                <polyline points="22 4 12 14.01 9 11.01" />
+              </svg>
+              <span>Quick response insertion</span>
+            </div>
+            <div className="feature-item">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                <circle cx="9" cy="7" r="4" />
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+              </svg>
+              <span>Sync across devices</span>
+            </div>
+            <div className="feature-item">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
+                <line x1="7" y1="7" x2="7.01" y2="7" />
+              </svg>
+              <span>Organize with tags</span>
+            </div>
+          </div>
+
+          <button 
+            className="btn-primary btn-login"
+            onClick={() => {
+              initiateLogin();
+              setNotification('Opening login page...');
+            }}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+              <polyline points="10 17 15 12 10 7" />
+              <line x1="15" y1="12" x2="3" y2="12" />
+            </svg>
+            Sign in to Continue
+          </button>
+
+          <p className="login-footer-text">Secure authentication via your browser</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show loading state while checking auth
+  if (isLoggedIn === null) {
+    return (
+      <div className="popup-container">
+        <div className="loading-screen">
+          <div className="brand-logo-large">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
+              <path
+                d="M12 2L2 7L12 12L22 7L12 2Z"
+                fill="currentColor"
+                opacity="0.9"
+              />
+              <path
+                d="M2 17L12 22L22 17"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+              <path
+                d="M2 12L12 17L22 12"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+            </svg>
+          </div>
+          <p>Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="popup-container">
       {notification && <div className="notification">{notification}</div>}
@@ -370,6 +499,32 @@ const App: React.FC = () => {
                   <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
                 </svg>
               )}
+            </button>
+            <button
+              className="logout-btn"
+              onClick={async () => {
+                if (confirm('Are you sure you want to logout?')) {
+                  await clearAuth();
+                  setNotification('✓ Logged out successfully');
+                  setTimeout(() => {
+                    setIsLoggedIn(false);
+                    setResponses([]);
+                  }, 500);
+                }
+              }}
+              aria-label="Logout"
+              title="Logout"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                <polyline points="16 17 21 12 16 7" />
+                <line x1="21" y1="12" x2="9" y2="12" />
+              </svg>
             </button>
             <button
               className="btn-new"
